@@ -2,6 +2,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 
 int main(){
     srand(time(NULL) ^ getpid());
@@ -19,6 +20,5 @@ int main(){
             exit(1);
         }
     }
-
     return 0;
 }

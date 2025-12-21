@@ -4,7 +4,7 @@
 int keep_running = 1;
 
 void handle_sigint(int sig) {
-    printf("\n[Serwer] Otrzymano sygnał %d (CTRL+C). Zamykanie baru...\n", sig);
+    printf("\n[MAIN] Otrzymano sygnał %d (CTRL+C). Zamykanie baru...\n", sig);
     keep_running = 0;
 }
 

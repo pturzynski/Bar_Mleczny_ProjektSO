@@ -29,8 +29,6 @@ BarState* join_ipc();
 void detach_ipc();
 void cleanup_ipc();
 
-extern int keepRunning;
-extern int semid;
 void semlock();
 void semunlock();
 
