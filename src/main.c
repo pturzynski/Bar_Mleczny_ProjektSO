@@ -1,7 +1,7 @@
 #include "ipc.h"
 #include <signal.h>
 
-volatile sig_atomic_t keep_running = 1;
+int keep_running = 1;
 
 void handle_sigint(int sig) {
     printf("\n[Serwer] Otrzymano sygnał %d (CTRL+C). Zamykanie baru...\n", sig);
