@@ -3,6 +3,7 @@
 
 #define FTOK_KEY 155237
 #define FTOK_PATH "."
+#define SEM_KEY 237155
 
 #include <string.h>
 #include <stdio.h>
@@ -27,5 +28,9 @@ BarState* init_ipc(int x1, int x2, int x3, int x4);
 BarState* join_ipc();
 void detach_ipc();
 void cleanup_ipc();
+
+extern int semid;
+void semlock();
+void semunlock();
 
 #endif

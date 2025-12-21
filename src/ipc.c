@@ -1,6 +1,7 @@
 #include "ipc.h"
 
 static BarState *bar;
+int semid = -1;
 
 BarState* init_ipc(int x1, int x2, int x3, int x4){
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
@@ -9,7 +10,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
         exit(1);
     }
 
-    int shmid = shmget(key, sizeof(BarState), IPC_CREAT | 0666 );
+    int shmid = shmget(key, sizeof(BarState), IPC_CREAT | 0666);
     if(shmid == -1){
         perror("shmget error");
         exit(1);
@@ -18,6 +19,17 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
     bar = (BarState*)shmat(shmid, NULL, 0);
     if(bar == (void*) - 1){
         perror("shmat error");
+        exit(1);
+    }
+
+    semid = semget(key, 1, IPC_CREAT | 0666);
+    if (semid == -1){
+        perror("semget error");
+        exit(1);
+    }
+
+    if (semctl(semid, 0, SETVAL, 1) == -1) {
+        perror("semctl SETVAL error");
         exit(1);
     }
 
@@ -60,6 +72,11 @@ BarState* join_ipc(){
         exit(1);
     }
 
+    semid = semget(key, 1, 0666);
+    if (semid == -1) { 
+        perror("semget error"); 
+        exit(1); 
+    }
     return bar;
 }
 
@@ -87,5 +104,32 @@ void cleanup_ipc(){
     if (clear == -1){
         perror("shmctl error");
         exit(1);
+    }
+    
+    if(semctl(semid, 0, IPC_RMID) == -1){ 
+        perror("semctl IPC_RMID error"); 
+        exit(1); 
+    }
+}
+
+void semlock(){
+    struct sembuf operation; //p
+    operation.sem_num = 0;
+    operation.sem_op = -1;
+    operation.sem_flg = 0;
+    if (semop(semid, &operation, 1) == -1){     
+        perror("sem lock error"); 
+        exit(1); 
+    }
+}
+
+void semunlock(){
+    struct sembuf operation; //V
+    operation.sem_num = 0;
+    operation.sem_op = 1;
+    operation.sem_flg = 0;
+    if (semop(semid, &operation, 1) == -1){ 
+        perror("sem unlock error"); 
+        exit(1); 
     }
 }
