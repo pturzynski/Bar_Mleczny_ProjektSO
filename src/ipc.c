@@ -11,26 +11,28 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
     }
 
     int shmid = shmget(key, sizeof(BarState), IPC_CREAT | 0666);
-    if(shmid == -1){
+    if (shmid == -1){
         perror("shmget error");
         exit(1);
     }
 
     bar = (BarState*)shmat(shmid, NULL, 0);
-    if(bar == (void*) - 1){
+    if (bar == (void*) - 1){
         perror("shmat error");
         exit(1);
     }
 
-    semid = semget(key, 1, IPC_CREAT | 0666);
+    int semnumber = 5;
+    semid = semget(key, semnumber, IPC_CREAT | 0666);
     if (semid == -1){
         perror("semget error");
         exit(1);
     }
-
-    if (semctl(semid, 0, SETVAL, 1) == -1) {
-        perror("semctl SETVAL error");
-        exit(1);
+    for (int i = 0; i < semnumber; i++){
+        if (semctl(semid, i, SETVAL, 1) == -1) {
+            perror("semctl SETVAL error");
+            exit(1);
+        }
     }
 
     memset(bar, 0, sizeof(BarState));
@@ -51,23 +53,23 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
 }
 
 BarState* join_ipc(){
-    if(bar != NULL){
+    if (bar != NULL){
         return bar;
     }
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
-    if(key == -1){
+    if (key == -1){
         perror("ftok error");
         exit(1);
     }
 
     int shmid = shmget(key, sizeof(BarState), 0666);
-    if(shmid == -1){
+    if (shmid == -1){
         perror("shmget error");
         exit(1);
     }
 
     bar = (BarState*)shmat(shmid, NULL, 0);
-    if(bar == (void*) - 1){
+    if (bar == (void*) - 1){
         perror("shmat error");
         exit(1);
     }
@@ -89,13 +91,13 @@ void detach_ipc() {
 
 void cleanup_ipc(){
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
-    if(key == -1){
+    if (key == -1){
         perror("ftok error");
         exit(1);
     }
 
     int shmid = shmget(key, sizeof(BarState), 0666);
-    if(shmid == -1){
+    if (shmid == -1){
         perror("shmget error");
         exit(1);
     }
@@ -106,15 +108,15 @@ void cleanup_ipc(){
         exit(1);
     }
     
-    if(semctl(semid, 0, IPC_RMID) == -1){ 
+    if (semctl(semid, 0, IPC_RMID) == -1){ 
         perror("semctl IPC_RMID error"); 
         exit(1); 
     }
 }
 
-void semlock(){
+void semlock(int sem_num){
     struct sembuf operation; //p
-    operation.sem_num = 0;
+    operation.sem_num = sem_num;
     operation.sem_op = -1;
     operation.sem_flg = 0;
     if (semop(semid, &operation, 1) == -1){     
@@ -123,9 +125,9 @@ void semlock(){
     }
 }
 
-void semunlock(){
-    struct sembuf operation; //V
-    operation.sem_num = 0;
+void semunlock(int sem_num){
+    struct sembuf operation; //v
+    operation.sem_num = sem_num;
     operation.sem_op = 1;
     operation.sem_flg = 0;
     if (semop(semid, &operation, 1) == -1){ 

@@ -1,8 +1,5 @@
 #include "ipc.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
+
  
 int getGroupSize(){
     srand(time(NULL) ^ getpid() << 16);
@@ -20,15 +17,19 @@ int main(){
         return 0;
     }
     BarState *bar = join_ipc();
-    semlock();
+    printf("[KLIENT %d] Grupa %d osobowa staje w kolejce do kasy\n", getpid(), groupSize);
+    semlock(SEM_CASHIER);
+    semlock(SEM_MEMORY);
     bar->clients += groupSize;
-    semunlock();
-    printf("[KLIENT %d] Grupa %d osobowa wchodzi do baru\n", getpid(), groupSize);
-    sleep(15);
-    semlock();    
+    semunlock(SEM_MEMORY);
+    printf("[KLIENT %d] Zamawiam\n", getpid());
+    sleep(2);
+    semunlock(SEM_CASHIER);
+    sleep(10);
+    printf("[KLIENT %d] Zjedlismy, Wychdzimy! (Grupa %d osob wychodzi z baru\n", getpid(), groupSize);\
+    semlock(SEM_MEMORY); 
     bar->clients -= groupSize;
-    semunlock();
-    printf("[KLIENT %d] Wychodzimy!\n", getpid());
+    semunlock(SEM_MEMORY);
     detach_ipc();  
     return 0;
 }

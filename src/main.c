@@ -4,7 +4,7 @@
 int keep_running = 1;
 
 void handle_sigint(int sig) {
-    printf("\n[MAIN] Otrzymano sygnał %d (CTRL+C). Zamykanie baru...\n", sig);
+    printf("\n[MAIN] Otrzymano sygnal ctrl+c zamykanie baru\n");
     keep_running = 0;
 }
 
@@ -20,20 +20,30 @@ int main(){
     
     int pid_generator = fork();
     if (pid_generator == 0){
-        execl("./clientgenerator", "generator", NULL);
-        perror("exec generator error");
+        execl("./clientgenerator", "Generator", NULL);
+        perror("exec generator error\n");
         exit(1);
     }
     if (pid_generator == -1){
-        perror("fork error");
+        perror("fork generator error\n");
+        exit(1);
+    }
+
+    int pid_cashier = fork();
+    if (pid_cashier == 0){
+        execl("./cashier", "Kasjer", NULL);
+        perror("exec cashier error\n");
+        exit(1);
+    }
+    if (pid_cashier == -1){
+        perror("fork cashier error\n");
         exit(1);
     }
     
-    while(keep_running){
-        printf("[MAIN] Aktualnie w barze %d klientów\n", bar->clients);
-        sleep(5);
+    while(keep_running) {
+        pause();
     }
-
+    
     detach_ipc();
     cleanup_ipc();
     return 0;

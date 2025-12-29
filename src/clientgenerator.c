@@ -10,12 +10,12 @@ int main(){
         sleep((rand() % 8 + 1));
         while (waitpid(-1, NULL, WNOHANG) > 0);
         int pid = fork();
-        if(pid == 0){
+        if (pid == 0){
             execl("./client", "klient", NULL);
             perror("[GENERATOR] execl failed");
             exit(1);
         }
-        if(pid == -1){
+        if (pid == -1){
             perror("[GENERATOR] fork error");
             exit(1);
         }
