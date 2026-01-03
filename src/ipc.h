@@ -5,6 +5,7 @@
 #define FTOK_PATH "."
 #define SEM_KEY 237155
 
+#define SEMNUMBER 2
 #define SEM_MEMORY 0
 #define SEM_CASHIER 1
 
@@ -21,6 +22,8 @@
 #include <sys/msg.h>
 #include <time.h>
 
+extern int keep_running;
+
 typedef struct{
     int flagDoubleX3;
     int flagFire; 
@@ -36,5 +39,14 @@ void detach_ipc();
 void cleanup_ipc();
 void semlock(int sem_num);
 void semunlock(int sem_num);
+
+typedef struct{
+    long int mtype;
+    int pid;
+    int groupSize;
+} msgbuf;
+
+void msgSend(msgbuf *m);
+int msgReceive(msgbuf *m, long int mtype);
 
 #endif

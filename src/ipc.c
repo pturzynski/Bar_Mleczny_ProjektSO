@@ -1,7 +1,10 @@
 #include "ipc.h"
 
-static BarState *bar;
-int semid = -1;
+static BarState *bar = NULL;
+static int shmid = -1;
+static int semid = -1;
+static int msgid = -1;
+static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
 BarState* init_ipc(int x1, int x2, int x3, int x4){
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
@@ -10,9 +13,15 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
         exit(1);
     }
 
-    int shmid = shmget(key, sizeof(BarState), IPC_CREAT | 0666);
+    shmid = shmget(key, sizeof(BarState), IPC_CREAT | 0666);
     if (shmid == -1){
         perror("shmget error");
+        exit(1);
+    }
+
+    msgid = msgget(key, IPC_CREAT | 0666);
+    if(msgid == -1){
+        perror("msgget error");
         exit(1);
     }
 
@@ -22,13 +31,12 @@ BarState* init_ipc(int x1, int x2, int x3, int x4){
         exit(1);
     }
 
-    int semnumber = 5;
-    semid = semget(key, semnumber, IPC_CREAT | 0666);
+    semid = semget(key, SEMNUMBER, IPC_CREAT | 0666);
     if (semid == -1){
         perror("semget error");
         exit(1);
     }
-    for (int i = 0; i < semnumber; i++){
+    for (int i = 0; i < SEMNUMBER; i++){
         if (semctl(semid, i, SETVAL, 1) == -1) {
             perror("semctl SETVAL error");
             exit(1);
@@ -56,13 +64,14 @@ BarState* join_ipc(){
     if (bar != NULL){
         return bar;
     }
+
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
     if (key == -1){
         perror("ftok error");
         exit(1);
     }
 
-    int shmid = shmget(key, sizeof(BarState), 0666);
+    shmid = shmget(key, sizeof(BarState), 0666);
     if (shmid == -1){
         perror("shmget error");
         exit(1);
@@ -74,11 +83,18 @@ BarState* join_ipc(){
         exit(1);
     }
 
-    semid = semget(key, 1, 0666);
+    semid = semget(key, SEMNUMBER, 0666);
     if (semid == -1) { 
         perror("semget error"); 
         exit(1); 
     }
+
+    msgid = msgget(key, 0666);
+    if (msgid == -1) {
+        perror("msgget join error");
+        exit(1); 
+    }
+
     return bar;
 }
 
@@ -90,27 +106,19 @@ void detach_ipc() {
 }
 
 void cleanup_ipc(){
-    key_t key = ftok(FTOK_PATH, FTOK_KEY);
-    if (key == -1){
-        perror("ftok error");
-        exit(1);
-    }
-
-    int shmid = shmget(key, sizeof(BarState), 0666);
-    if (shmid == -1){
-        perror("shmget error");
-        exit(1);
-    }
-
-    int clear = shmctl(shmid, IPC_RMID, NULL);
-    if (clear == -1){
-        perror("shmctl error");
+    if ((shmctl(shmid, IPC_RMID, NULL)) == -1){
+        perror("shmctl IPIC_RMID error");
         exit(1);
     }
     
     if (semctl(semid, 0, IPC_RMID) == -1){ 
         perror("semctl IPC_RMID error"); 
         exit(1); 
+    }
+
+    if (msgctl(msgid, IPC_RMID, NULL) == -1){
+        perror("msgctl IPC_RMID error");
+        exit(1);
     }
 }
 
@@ -134,4 +142,20 @@ void semunlock(int sem_num){
         perror("sem unlock error"); 
         exit(1); 
     }
+}
+
+void msgSend(msgbuf *m){
+    if(msgsnd(msgid, m, msgSize, 0) == -1){
+        perror("Message send error");
+        exit(1);
+    }
+}
+
+int msgReceive(msgbuf *m, long int mtype){
+    int result = msgrcv(msgid, m, msgSize, mtype, 0);
+    if (result == -1){
+        perror("Message receive error");
+        exit(1);
+    }
+    return result;
 }

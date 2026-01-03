@@ -1,33 +1,35 @@
 #include "ipc.h"
 
- 
-int getGroupSize(){
-    srand(time(NULL) ^ getpid() << 16);
-    if ((rand() % 101) <= 5){
-        return 0;
-    };
-    int groupSize = (rand() % 3 + 1);
-    return groupSize;
-}
 
 int main(){
-    int groupSize = getGroupSize();
-    if (groupSize == 0){
-        printf("Rezygnuje!\n");
-        return 0;
-    }
     BarState *bar = join_ipc();
-    printf("[KLIENT %d] Grupa %d osobowa staje w kolejce do kasy\n", getpid(), groupSize);
-    semlock(SEM_CASHIER);
+    msgbuf msg;
+
+    srand(time(NULL) ^ getpid() << 16);
+    int groupSize = (rand() % 3 + 1);
     semlock(SEM_MEMORY);
     bar->clients += groupSize;
     semunlock(SEM_MEMORY);
-    printf("[KLIENT %d] Zamawiam\n", getpid());
-    sleep(2);
+    printf("[KLIENT %d] Jestesmy grupa %d osob!\n", getpid(), groupSize);
+    int ifOrder = rand() % 101;
+    if (ifOrder <= 5){
+        semlock(SEM_MEMORY);
+        bar->clients -= groupSize;
+        semunlock(SEM_MEMORY);
+        printf("[KLIENT %d] Rezygnujemy z zamowienia. Wychodzimy z baru!\n", getpid());
+        detach_ipc();  
+        return 0;
+    }
+    msg.mtype = 1; //kasjer
+    msg.pid = getpid();
+    msg.groupSize = groupSize;
+    semlock(SEM_CASHIER);
+    msgSend(&msg);
+    printf("[KLIENT %d] Zamawiamy!\n", getpid());
     semunlock(SEM_CASHIER);
     sleep(10);
-    printf("[KLIENT %d] Zjedlismy, Wychdzimy! (Grupa %d osob wychodzi z baru\n", getpid(), groupSize);\
-    semlock(SEM_MEMORY); 
+    semlock(SEM_MEMORY);
+    printf("[KLIENT %d] Grupa %d osob wychodzi z baru!\n", getpid(), groupSize);
     bar->clients -= groupSize;
     semunlock(SEM_MEMORY);
     detach_ipc();  

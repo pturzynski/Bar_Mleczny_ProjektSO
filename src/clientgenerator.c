@@ -7,7 +7,7 @@
 int main(){
     srand(time(NULL) ^ getpid());
     while(1){
-        sleep((rand() % 8 + 1));
+        sleep((rand() % 8 + 3));
         while (waitpid(-1, NULL, WNOHANG) > 0);
         int pid = fork();
         if (pid == 0){
