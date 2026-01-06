@@ -9,6 +9,7 @@
 #define SEM_MEMORY 0
 #define SEM_CASHIER 1
 
+#define MTYPE_CASHIER 1
 
 #include <string.h>
 #include <stdio.h>
@@ -21,19 +22,29 @@
 #include <stdbool.h>
 #include <sys/msg.h>
 #include <time.h>
+#include <errno.h>
 
 extern int keep_running;
 
 typedef struct{
+    int id;
+    int capacity;
+    int groupSize;
+    int freeSlots;
+    int isReserved;
+} Table;
+
+typedef struct{
+    int x1, x2, x3, x4;
+    int flagReservation;
     int flagDoubleX3;
     int flagFire; 
-    int x1, x2, x3, x4;
-    int freeX1, freeX2, freeX3, freeX4;
     int clients;
     int maxClients;
+    Table tables[];
 } BarState;
 
-BarState* init_ipc(int x1, int x2, int x3, int x4);
+BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables);
 BarState* join_ipc();
 void detach_ipc();
 void cleanup_ipc();

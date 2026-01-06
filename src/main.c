@@ -11,17 +11,20 @@ void handle_sigint(int sig) {
 int main(){
     signal(SIGINT, handle_sigint);
     int x1, x2, x3, x4;
-    x1 = x2 = x3 = x4 = 1;
-    // printf("Podaj liczbe stolikow kolejno: 1-os, 2-os, 3-os, 4-os (oddziel spacja)\n");
-    // printf("PRZYKLAD: 1 2 3 4\n");
-    // scanf("%d %d %d %d", &x1, &x2, &x3, &x4);
+    int maxTables = x1 + x2 + (2*x3) + x4; 
+    printf("Podaj liczbe stolikow kolejno: 1-os, 2-os, 3-os, 4-os (oddziel spacja)\n");
+    printf("PRZYKLAD: 1 2 3 4\n");
+    scanf("%d %d %d %d", &x1, &x2, &x3, &x4);
+    if (x1 <= 0 || x2 <= 0 || x3 <= 0 || x4 <= 0){
+        fprintf(stderr, "Błąd: liczba stolików musi być większa od 0!\n");
+        exit(1);
+    }
 
-    BarState *bar = init_ipc(x1, x2, x3, x4);
-    printf("Ilosc stolikow %d , %d , %d , %d\n", bar->x1, bar->x2, bar->x3, bar->x4);
-    
+    BarState *bar = init_ipc(x1, x2, x3, x4, maxTables);
+
     int pid_generator = fork();
     if (pid_generator == 0){
-        execl("./clientgenerator", "Generator", NULL);
+        execl("./generator", "Generator", NULL);
         perror("exec generator error\n");
         exit(1);
     }

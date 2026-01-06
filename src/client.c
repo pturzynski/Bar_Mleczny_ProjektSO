@@ -20,7 +20,7 @@ int main(){
         detach_ipc();  
         return 0;
     }
-    msg.mtype = 1; //kasjer
+    msg.mtype = MTYPE_CASHIER;
     msg.pid = getpid();
     msg.groupSize = groupSize;
     semlock(SEM_CASHIER);
