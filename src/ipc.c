@@ -49,6 +49,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     bar->x2 = x2;
     bar->x3 = x3;
     bar->x4 = x4;
+    bar->allTables = x1 + x2 + x3 + x4;
     bar->flagReservation = 0;
     bar->flagDoubleX3 = 0;
     bar->flagFire = 0;
@@ -58,7 +59,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     for(int i = 0; i<x1; i++){
         bar->tables[ind].id = ind;
         bar->tables[ind].capacity = 1;
-        bar->tables[ind].groupSize = 0;
+        bar->tables[ind].whoSits = 0;
         bar->tables[ind].freeSlots = 1;
         bar->tables[ind].isReserved = 0;
         ind++;
@@ -67,7 +68,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     for(int i = 0; i<x2; i++){
         bar->tables[ind].id = ind;
         bar->tables[ind].capacity = 2;
-        bar->tables[ind].groupSize = 0;
+        bar->tables[ind].whoSits = 0;
         bar->tables[ind].freeSlots = 2;
         bar->tables[ind].isReserved = 0;
         ind++;
@@ -76,7 +77,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     for(int i = 0; i<x3; i++){
         bar->tables[ind].id = ind;
         bar->tables[ind].capacity = 3;
-        bar->tables[ind].groupSize = 0;
+        bar->tables[ind].whoSits = 0;
         bar->tables[ind].freeSlots = 3;
         bar->tables[ind].isReserved = 0;
         ind++;
@@ -85,7 +86,7 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     for(int i = 0; i<x4; i++){
         bar->tables[ind].id = ind;
         bar->tables[ind].capacity = 4;
-        bar->tables[ind].groupSize = 0;
+        bar->tables[ind].whoSits = 0;
         bar->tables[ind].freeSlots = 4;
         bar->tables[ind].isReserved = 0;
         ind++;

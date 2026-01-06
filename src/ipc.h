@@ -10,6 +10,11 @@
 #define SEM_CASHIER 1
 
 #define MTYPE_CASHIER 1
+#define MTYPE_WORKER 2
+
+#define RESET   "\033[0m"
+#define CASHIER_COL "\033[34m" //niebieski
+#define CLIENT_COL "\033[33m" //zolty
 
 #include <string.h>
 #include <stdio.h>
@@ -29,13 +34,14 @@ extern int keep_running;
 typedef struct{
     int id;
     int capacity;
-    int groupSize;
-    int freeSlots;
+    int whoSits; 
+    int freeSlots; 
     int isReserved;
 } Table;
 
 typedef struct{
     int x1, x2, x3, x4;
+    int allTables;
     int flagReservation;
     int flagDoubleX3;
     int flagFire; 
@@ -55,6 +61,8 @@ typedef struct{
     long int mtype;
     int pid;
     int groupSize;
+    int order; //0 - nie ma miejsca, nie zamowimy 1 - jest miejsce, zamowione, idziemy odebrac danie
+    int tableId;
 } msgbuf;
 
 void msgSend(msgbuf *m);
