@@ -5,9 +5,10 @@
 #define FTOK_PATH "."
 #define SEM_KEY 237155
 
-#define SEMNUMBER 2
+#define SEMNUMBER 3
 #define SEM_MEMORY 0
 #define SEM_CASHIER 1
+#define SEM_WORKER 2
 
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
@@ -15,6 +16,7 @@
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
 #define CLIENT_COL "\033[33m" //zolty
+#define WORKER_COL "\033[32m" //zielony
 
 #include <string.h>
 #include <stdio.h>

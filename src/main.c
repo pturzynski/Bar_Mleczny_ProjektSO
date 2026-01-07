@@ -44,6 +44,17 @@ int main(){
         exit(1);
     }
     
+    int pid_worker = fork();
+    if (pid_worker == 0){
+        execl("./worker", "Pracownik", NULL);
+        perror("exec cashier error\n");
+        exit(1);
+    }
+    if (pid_worker == -1){
+        perror("fork worker error\n");
+        exit(1);
+    }
+
     while(keep_running) {
         pause();
     }
