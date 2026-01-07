@@ -1,17 +1,19 @@
 #ifndef IPC_H
 #define IPC_H
 
-#define FTOK_KEY 155237
+#define FTOK_KEY 155237 
 #define FTOK_PATH "."
-#define SEM_KEY 237155
 
-#define SEMNUMBER 3
-#define SEM_MEMORY 0
-#define SEM_CASHIER 1
-#define SEM_WORKER 2
+#define SEMNUMBER 3 //liczba semaforow
+#define SEM_MEMORY 0 //semafor pamieci dzielonej
+#define SEM_CASHIER 1 //semafor kasjera
+#define SEM_WORKER 2 //semafor pracownika
 
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
+
+#define WORKER_FOOD 1 //odbieranie jedzenia od pracownika
+#define WORKER_CLEAN 2 //pracownik sprzata po kliencie
 
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
@@ -65,6 +67,7 @@ typedef struct{
     int groupSize;
     int order; //0 - nie ma miejsca, nie zamowimy 1 - jest miejsce, zamowione, idziemy odebrac danie
     int tableId;
+    int action;
 } msgbuf;
 
 void msgSend(msgbuf *m);
