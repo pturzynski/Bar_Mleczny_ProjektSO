@@ -9,6 +9,7 @@ int main(){
 
     while(keep_running){
         msgReceive(&msg, MTYPE_WORKER);
+        
         if(msg.action == WORKER_FOOD){
             printf(WORKER_COL "[PRACOWNIK] Nakladam danie dla klienta %d\n" RESET, msg.pid);
             msg.mtype = msg.pid;
@@ -22,6 +23,7 @@ int main(){
                 bar->tables[msg.tableId].whoSits = 0;
             }
             semunlock(SEM_MEMORY);
+            semunlock(SEM_MSG_LIMIT);
         }
     }
     printf(WORKER_COL "[PRACOWNIK] Koncze prace!\n" RESET);

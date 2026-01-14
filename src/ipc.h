@@ -3,11 +3,14 @@
 
 #define FTOK_KEY 155237 
 #define FTOK_PATH "."
+#define MAX_PROCESSES 500
 
-#define SEMNUMBER 3 //liczba semaforow
+#define SEMNUMBER 5 //liczba semaforow
 #define SEM_MEMORY 0 //semafor pamieci dzielonej
 #define SEM_CASHIER 1 //semafor kasjera
 #define SEM_WORKER 2 //semafor pracownika
+#define SEM_GENERATOR 3 //semafor dla generatora pracownikow
+#define SEM_MSG_LIMIT 4 //limit dla kolejki komunikatow
 
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
@@ -27,6 +30,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <stdbool.h>
 #include <sys/msg.h>

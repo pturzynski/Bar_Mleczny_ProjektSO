@@ -12,59 +12,39 @@ int main(){
 
         msgReceive(&msg, MTYPE_CASHIER);
         printf(CASHIER_COL "[KASJER] Szukam stolika %d osobowego dla klienta (%d)\n" RESET, msg.groupSize, msg.pid);
-        for(int i = 0; i < bar->allTables; i++){
-            if(bar->tables[i].capacity == msg.groupSize && 
-               bar->tables[i].freeSlots >= msg.groupSize && 
-               bar->tables[i].isReserved == 0){
-                    printf("1 if\n");
-                    foundTable = bar->tables[i].id;
-                    semlock(SEM_MEMORY);
-                    bar->tables[i].freeSlots -= msg.groupSize;
-                    bar->tables[i].whoSits = msg.groupSize;
-                    printf(CASHIER_COL "[KASJER] Znalazlem stolik (nr %d, %d osobowy) dla klienta (%d)\n" RESET, foundTable, bar->tables[i].capacity, msg.pid);
-                    semunlock(SEM_MEMORY);
-                    printf(CASHIER_COL "[KASJER] Zamowienie przyjete\n");
+        semlock(SEM_MEMORY);
+        for(int i = msg.groupSize; i<=3; i++){
+            for(int j = 0; j < bar->allTables; j++){
+                Table *tab = &bar->tables[j];
+                if(i == tab->capacity && tab->isReserved == 0 && tab->whoSits == 0){
+                    foundTable = tab->id;
+                    tab->freeSlots -= msg.groupSize;
+                    tab->whoSits = msg.groupSize;
+                    printf(CASHIER_COL "[KASJER] Znalazlem stolik (nr %d, %d osobowy) dla klienta (%d)\n" RESET, foundTable, tab->capacity, msg.pid);
                     break;
                 }
-
-            if(bar->tables[i].capacity >= msg.groupSize &&
-               bar->tables[i].freeSlots >= msg.groupSize && 
-               bar->tables[i].isReserved == 0){
-                    if(bar->tables[i].whoSits == 0){
-                        printf("2 if\n");
-                        foundTable = bar->tables[i].id;
-                        semlock(SEM_MEMORY);
-                        bar->tables[i].whoSits = msg.groupSize;
-                        bar->tables[i].freeSlots -= msg.groupSize;
-                        printf(CASHIER_COL "[KASJER] Znalazlem stolik (%d , %d osobowy) dla PID %d\n" RESET, foundTable, bar->tables[i].capacity, msg.pid);
-                        semunlock(SEM_MEMORY);
-                        printf(CASHIER_COL "[KASJER] Zamowienie przyjete\n");
-                        break;
-                    }
-
-                    if(bar->tables[i].whoSits == msg.groupSize){
-                        printf("3 if\n");
-                        foundTable = bar->tables[i].id;
-                        semlock(SEM_MEMORY);
-                        bar->tables[i].freeSlots -= msg.groupSize;
-                        printf(CASHIER_COL "[KASJER] Znalazlem stolik (%d , %d osobowy) dla PID %d. Siedzi przy aktualnie %d osob\n" RESET, foundTable, bar->tables[i].capacity, msg.pid,
-                        bar->tables[i].capacity - bar->tables[i].freeSlots);
-                        semunlock(SEM_MEMORY);
-                        printf(CASHIER_COL "[KASJER] Zamowienie przyjete\n");
-                        break;
-                    }
+                if(msg.groupSize == tab->whoSits && tab->freeSlots >= msg.groupSize){
+                    foundTable = tab->id;
+                    printf(CASHIER_COL "[KASJER] Znalazlem stolik (%d , %d osobowy) dla klienta (%d). Siedzi przy aktualnie %d osob\n" RESET, foundTable, tab->capacity, 
+                        msg.pid, tab->capacity - tab->freeSlots);
+                    tab->freeSlots -= msg.groupSize;
+                    break;
+                }
+                if(foundTable != -1){
+                    break;
                 }
             }
-        msg.mtype = msg.pid;
-        msg.tableId = foundTable;
-        if(foundTable == -1){
-            msg.order = 0;
-            msgSend(&msg);
         }
-        else{
+        if(foundTable != -1){
+            msg.tableId = foundTable;
             msg.order = 1;
-            msgSend(&msg);
         }
+        else{ 
+            msg.order = 0;
+        }
+        msg.mtype = msg.pid;
+        semunlock(SEM_MEMORY);
+        msgSend(&msg);
     }
     printf(CASHIER_COL "[KASJER] Kasa zamknieta\n" RESET);
     detach_ipc();

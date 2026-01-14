@@ -58,7 +58,11 @@ int main(){
     while(keep_running) {
         pause();
     }
-    
+
+    kill(pid_generator, SIGINT);
+    kill(pid_cashier, SIGINT);
+    kill(pid_worker, SIGINT);
+    while (wait(NULL) > 0);
     detach_ipc();
     cleanup_ipc();
     return 0;

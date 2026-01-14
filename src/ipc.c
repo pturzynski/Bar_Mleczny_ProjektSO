@@ -8,19 +8,19 @@ static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
 BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
-    if (key == -1){
+    if(key == -1){
         perror("ftok error");
         exit(1);
     }
 
     shmid = shmget(key, sizeof(BarState) + (maxTables * sizeof(Table)), IPC_CREAT | 0600);
-    if (shmid == -1){
+    if(shmid == -1){
         perror("shmget error (init)");
         exit(1);
     }
 
     semid = semget(key, SEMNUMBER, IPC_CREAT | 0600);
-    if (semid == -1){
+    if(semid == -1){
         perror("semget error (init)");
         exit(1);
     }
@@ -32,13 +32,20 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
     }
 
     bar = (BarState*)shmat(shmid, NULL, 0);
-    if (bar == (void*) - 1){
+    if(bar == (void*) - 1){
         perror("shmat error (init)");
         exit(1);
     }
 
-    for (int i = 0; i < SEMNUMBER; i++){
-        if (semctl(semid, i, SETVAL, 1) == -1) {
+    for(int i = 0; i < SEMNUMBER; i++){
+        int value = 1;
+        if(i == SEM_GENERATOR){
+            value = MAX_PROCESSES;
+        }
+        if(i == SEM_MSG_LIMIT){
+            value = 50;
+        }
+        if(semctl(semid, i, SETVAL, value) == -1) {
             perror("semctl SETVAL error (init)");
             exit(1);
         }
@@ -91,38 +98,38 @@ BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
         bar->tables[ind].isReserved = 0;
         ind++;
     }
-    
+
     return bar;
 }
 
 BarState* join_ipc(){
-    if (bar != NULL){
+    if(bar != NULL){
         return bar;
     }
 
     key_t key = ftok(FTOK_PATH, FTOK_KEY);
-    if (key == -1){
+    if(key == -1){
         perror("ftok error");
         exit(1);
     }
     shmid = shmget(key, 0, 0600);
-    if (shmid == -1){
+    if(shmid == -1){
         perror("shmget join error");
     }
 
     semid = semget(key, SEMNUMBER, 0600);
-    if (semid == -1) { 
+    if(semid == -1) { 
         perror("semget join error"); 
         exit(1); 
     }
     msgid = msgget(key, 0600);
-    if (msgid == -1) {
+    if(msgid == -1) {
         perror("msgget join error");
         exit(1); 
     }
 
     bar = (BarState*)shmat(shmid, NULL, 0);
-    if (bar == (void*) - 1){
+    if(bar == (void*) - 1){
         perror("shmat error");
         exit(1);
     }
@@ -131,9 +138,9 @@ BarState* join_ipc(){
 }
 
 void detach_ipc() {
-    if (bar != NULL) {
+    if(bar != NULL) {
         int dt = shmdt(bar);
-        if (dt == -1){
+        if(dt == -1){
             perror("shmdt error (detach)");
         }
         bar = NULL;
@@ -141,15 +148,15 @@ void detach_ipc() {
 }
 
 void cleanup_ipc(){
-    if ((shmctl(shmid, IPC_RMID, NULL)) == -1){
+    if((shmctl(shmid, IPC_RMID, NULL)) == -1){
         perror("shmctl IPIC_RMID error");
     }
     
-    if (semctl(semid, 0, IPC_RMID) == -1){ 
+    if(semctl(semid, 0, IPC_RMID) == -1){ 
         perror("semctl IPC_RMID error"); 
     }
 
-    if (msgctl(msgid, IPC_RMID, NULL) == -1){
+    if(msgctl(msgid, IPC_RMID, NULL) == -1){
         perror("msgctl IPC_RMID error");
     }
 }
@@ -159,7 +166,13 @@ void semlock(int sem_num){
     operation.sem_num = sem_num;
     operation.sem_op = -1;
     operation.sem_flg = 0;
-    if (semop(semid, &operation, 1) == -1){     
+    while(semop(semid, &operation, 1) == -1){     
+        if(errno == EINTR){ 
+            continue;
+        } 
+        if(errno == EINVAL){ 
+            exit(0);
+        }
         perror("sem lock error"); 
         exit(1); 
     }
@@ -170,24 +183,49 @@ void semunlock(int sem_num){
     operation.sem_num = sem_num;
     operation.sem_op = 1;
     operation.sem_flg = 0;
-    if (semop(semid, &operation, 1) == -1){ 
-        perror("sem unlock error"); 
+    while(semop(semid, &operation, 1) == -1){     
+        if(errno == EINTR){ 
+            continue;
+        } 
+        if(errno == EINVAL){ 
+            exit(0);
+        }
+        perror("sem lock error"); 
         exit(1); 
     }
 }
 
 void msgSend(msgbuf *m){
-    if(msgsnd(msgid, m, msgSize, 0) == -1){
-        perror("Message send error");
-        exit(1);
+    while(1){
+        if(msgsnd(msgid, m, msgSize, 0) == -1){
+            if (errno == EINTR){ 
+                continue;
+            }
+            if(errno == EINVAL || errno == EIDRM){ 
+                exit(0);
+            }
+            perror("Message send error");
+            exit(1);
+        }
+        break;
     }
 }
 
 int msgReceive(msgbuf *m, long int mtype){
-    int result = msgrcv(msgid, m, msgSize, mtype, 0);
-    if (result == -1){
-        perror("Message receive error");
-        exit(1);
+    int result;
+    while(1){
+        result = msgrcv(msgid, m, msgSize, mtype, 0);
+        if(result == -1){
+            if(errno == EINTR){ 
+                continue;
+            } 
+            if(errno == EINVAL || errno == EIDRM){
+                exit(0);
+            }
+            perror("Message receive error");
+            exit(1);
+        }
+        break;
     }
     return result;
 }
