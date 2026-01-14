@@ -2,7 +2,13 @@
 
 int keep_running = 1;
 
+void handle_signal(int sig) {
+    keep_running = 0;
+}
+
 int main(){
+    signal(SIGTERM, handle_signal);
+    signal(SIGINT, handle_signal);
     BarState *bar = join_ipc();
     msgbuf msg;
     printf(WORKER_COL "[PRACOWNIK] Rozpoczynam prace!\n" RESET);

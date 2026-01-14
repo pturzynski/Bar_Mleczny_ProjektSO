@@ -1,5 +1,4 @@
 #include "ipc.h"
-#include <signal.h>
 
 int keep_running = 1;
 

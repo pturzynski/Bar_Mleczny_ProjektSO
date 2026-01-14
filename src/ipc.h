@@ -3,7 +3,7 @@
 
 #define FTOK_KEY 155237 
 #define FTOK_PATH "."
-#define MAX_PROCESSES 500
+#define MAX_PROCESSES 15000
 
 #define SEMNUMBER 5 //liczba semaforow
 #define SEM_MEMORY 0 //semafor pamieci dzielonej
@@ -33,6 +33,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>

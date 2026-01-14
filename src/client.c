@@ -1,6 +1,14 @@
 #include "ipc.h"
 
+void handle_signal(int sig) {
+    semunlock(SEM_GENERATOR);
+    detach_ipc();
+    exit(0);
+}
+
 int main(){
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
     BarState *bar = join_ipc();
     msgbuf msg;
     srand(time(NULL) ^ getpid() << 16);

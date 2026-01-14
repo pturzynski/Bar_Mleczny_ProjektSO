@@ -2,7 +2,13 @@
 
 int keep_running = 1;
 
+void handle_signal(int sig) {
+    keep_running = 0;
+}
+
 int main(){
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
     BarState *bar = join_ipc();
     msgbuf msg;
     printf(CASHIER_COL "[KASJER] Kasa została otwarta\n" RESET);
@@ -13,7 +19,8 @@ int main(){
         msgReceive(&msg, MTYPE_CASHIER);
         printf(CASHIER_COL "[KASJER] Szukam stolika %d osobowego dla klienta (%d)\n" RESET, msg.groupSize, msg.pid);
         semlock(SEM_MEMORY);
-        for(int i = msg.groupSize; i<=3; i++){
+        //i to rozmiar grupy, zaczynamy szukac od stolikow rownym rozmiarowi grupy 
+        for(int i = msg.groupSize; i<=4; i++){
             for(int j = 0; j < bar->allTables; j++){
                 Table *tab = &bar->tables[j];
                 if(i == tab->capacity && tab->isReserved == 0 && tab->whoSits == 0){
