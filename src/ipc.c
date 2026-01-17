@@ -1,14 +1,14 @@
 #include "include/ipc.h"
 
-static BarState *bar = NULL;
+BarState *bar = NULL;
 
-static int shmid = -1;
-static int semid = -1;
+int shmid = -1;
+int semid = -1;
 
-static int msgClient = -1;
-static int msgCashier = -1;
-static int msgWorker = -1;
-static int msgStaff = -1;
+int msgClient = -1;
+int msgCashier = -1;
+int msgWorker = -1; 
+int msgStaff = -1;
 
 static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
@@ -30,6 +30,7 @@ key_t getKey(char id){
     return key;
 }
 
+//pamiec wspoldzieona
 BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     key_t key = getKey(KEY_SHMEM);
 
@@ -98,6 +99,7 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     return bar;
 }
 
+//semafory
 int init_semaphores(int max_clients){
     key_t key = getKey(KEY_SEM);
 
@@ -118,6 +120,10 @@ int init_semaphores(int max_clients){
             value = bar->maxClients;
         }
 
+        if(i == SEM_SEARCH){
+            value = 0;
+        }
+
         if(semctl(semid, i, SETVAL, value) == -1) {
             perror("semctl SETVAL error (init)");
             exit(1);
@@ -127,6 +133,7 @@ int init_semaphores(int max_clients){
     return semid;
 }
 
+//kolejka
 void init_queue(){
     msgClient = msgget(getKey('A'), IPC_CREAT | 0600);
     msgCashier = msgget(getKey('B'), IPC_CREAT | 0600);
@@ -227,14 +234,18 @@ void semlock(int sem_num){
     struct sembuf op; //p
     op.sem_num = sem_num;
     op.sem_op = -1;
-    op.sem_flg = SEM_UNDO;
-    while (1) {
-        if (semop(semid, &op, 1) == 0) {
+    op.sem_flg = 0;
+    while (1){
+        if(semop(semid, &op, 1) == 0){
             break;
         }
-        if (errno == EINTR) {
+        if(errno == EINTR){
             continue;
-        } else {
+        } 
+        if(errno == EIDRM || errno == EINVAL){
+            break;
+        }
+        else{
             perror("semop lock error");
             exit(1);
         }
@@ -247,12 +258,16 @@ void semunlock(int sem_num){
     op.sem_op = 1;
     op.sem_flg = 0;
     while (1) {
-        if (semop(semid, &op, 1) == 0) {
+        if(semop(semid, &op, 1) == 0){
             break;
         }
-        if (errno == EINTR) {
+        if(errno == EINTR){
             continue;
-        } else {
+        } 
+        if(errno == EIDRM || errno == EINVAL){
+            break;
+        }
+        else{
             perror("semop unlock error");
             exit(1);
         }
@@ -265,13 +280,17 @@ void sem_closeDoor(int sem_num, int groupSize){
     op.sem_op = -groupSize;
     op.sem_flg = 0;
     while (1) {
-        if (semop(semid, &op, 1) == 0) {
+        if(semop(semid, &op, 1) == 0){
             break;
         }
-        if (errno == EINTR) {
+        if(errno == EINTR){
             continue;
-        } else {
-            perror("semop lock error");
+        } 
+        if(errno == EIDRM || errno == EINVAL){
+            break;
+        }
+        else{
+            perror("semop door lock error");
             exit(1);
         }
     }
@@ -283,29 +302,39 @@ void sem_openDoor(int sem_num, int groupSize){
     op.sem_op = groupSize;
     op.sem_flg = 0;
     while (1) {
-        if (semop(semid, &op, 1) == 0) {
+        if(semop(semid, &op, 1) == 0){
             break;
         }
-        if (errno == EINTR) {
+        if(errno == EINTR){
             continue;
-        } else {
-            perror("semop lock error");
+        } 
+        if(errno == EIDRM || errno == EINVAL){
+            break;
+        }
+        else{
+            perror("semop door lock error");
             exit(1);
         }
     }
 }
 
 void msgSend(int dest, msgbuf *msg){
-    if (msgsnd(dest, msg, msgSize, 0) == -1) {
-        if (errno == EINTR) {
-        return;
+    while(1){
+        if (msgsnd(dest, msg, msgSize, 0) == -1){
+            if(errno == EINTR){
+                continue;
+            }
+            if(errno == EIDRM || errno == EINVAL){
+                return;
+            }
+            perror("msgsnd error");
+            exit(1);
         }
-        perror("msgsnd error");
-        exit(1);
+        break;
     }
 }
 
-int msgReceive(int dest, msgbuf *msg, long type, int nowait){
+int msgReceive(int src, msgbuf *msg, long type, int nowait){
     int flag = 0;
     if (nowait == 1) {
         flag = IPC_NOWAIT;
@@ -313,10 +342,15 @@ int msgReceive(int dest, msgbuf *msg, long type, int nowait){
 
     int result;
     while(1){
+        result = msgrcv(src, msg, msgSize, type, flag);
         if (result == -1) {
-            if (errno == EINTR) {
+            if(errno == EINTR){
                 continue;
-            } else {
+            } 
+            if(errno == EIDRM){
+                break;
+            }
+            else{
                 perror("msgrcv error");
                 exit(1);
             }

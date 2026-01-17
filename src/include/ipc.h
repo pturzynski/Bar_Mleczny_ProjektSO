@@ -1,28 +1,20 @@
 #ifndef IPC_H
 #define IPC_H
 
-
-#define MAX_PROCESSES 10000 //maksymalna liczba procesow do stworzenia
+#define MAX_PROCESSES 10000//maksymalna liczba procesow do stworzenia
 #define KEY_SHMEM '!'
 #define KEY_SEM '@'
 
-#define SEMNUMBER 5 //liczba semaforow
+//semafory
+#define SEMNUMBER 4 //liczba semaforow
+#define SEM_MEMORY 0 //semafor pamieci dzielonej
+#define SEM_GENERATOR 1 //semafor dla generatora pracownikow
+#define SEM_DOOR 2 //drzwi do baru, ograniczone maxClients
+#define SEM_SEARCH 3 //semafor do petli szukania stolika dla klienta w client.c
 
-#define SEM_MEMORY 1 //semafor pamieci dzielonej
-#define SEM_CASHIER 2 //semafor kasjera
-#define SEM_WORKER 3 //semafor pracownika
-#define SEM_GENERATOR 4 //semafor dla generatora pracownikow
-#define SEM_DOOR 5 //drzwi do baru, ograniczone maxClients
-
+//mtype komunikatow
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
-
-//akcje komunikaty
-#define ACT_ORDER 1 
-#define ACT_PICKUP 2
-#define ACT_EATEN 3
-#define ACT_FREE_TABLE 4
-#define ACT_RESERVE 5
 
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
@@ -67,11 +59,8 @@ typedef struct{
 
 typedef struct{
     long int mtype;
-    int pid;
-    int groupSize;
+    int pid; 
     int payed; //0 - nie zaplacone, 1 - zaplacone 
-    int tableId;
-    int action;
 } msgbuf;
 
 key_t getKey(char id);
@@ -90,5 +79,11 @@ void sem_openDoor(int sem_num, int groupSize);
 
 void msgSend(int dest, msgbuf *msg);
 int msgReceive(int src, msgbuf *msg, long type, int nowait);
+
+extern int msgClient;
+extern int msgCashier;
+extern int msgWorker;
+extern int msgStaff;
+extern BarState *bar;
 
 #endif
