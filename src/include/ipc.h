@@ -15,6 +15,7 @@
 //mtype komunikatow
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
+#define MTYPE_STAFF 3
 
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
@@ -54,6 +55,8 @@ typedef struct{
     int flagFire; 
     int clients;
     int maxClients;
+    pid_t workerPid;
+    pid_t mainPid;
     Table tables[];
 } BarState;
 
@@ -61,6 +64,7 @@ typedef struct{
     long int mtype;
     int pid; 
     int payed; //0 - nie zaplacone, 1 - zaplacone 
+    int success; //do komunikacji pracownik -> menadzer (0 - brak sukcesu, 1 - udalo sie)
 } msgbuf;
 
 key_t getKey(char id);
@@ -76,7 +80,7 @@ void semlock(int sem_num);
 void semunlock(int sem_num);
 void sem_closeDoor(int sem_num, int groupSize);
 void sem_openDoor(int sem_num, int groupSize);
-void sem_wakeWaiting(int sem_num);
+void sem_wakeWaiting(); //budzi czekajacych na semaforze SEM_SEARCH
 
 void msgSend(int dest, msgbuf *msg);
 int msgReceive(int src, msgbuf *msg, long type, int nowait);

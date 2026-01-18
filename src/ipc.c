@@ -57,6 +57,8 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     bar->flagDoubleX3 = 0;
     bar->flagFire = 0;
     bar->clients = 0;
+    bar->workerPid = 0;
+    bar->mainPid = 0;
     bar->maxClients = 1*x1 + 2*x2 + 3*x3 + 4*x4;
 
     int ind = 0;
@@ -318,8 +320,8 @@ void sem_openDoor(int sem_num, int groupSize){
     }
 }
 
-void sem_wakeWaiting(int sem_num){
-    int waiting = semctl(semid, sem_num, GETNCNT); //getncnt - ile klientow spi na semafroze
+void sem_wakeWaiting(){
+    int waiting = semctl(semid, SEM_SEARCH, GETNCNT); //getncnt - ile klientow spi na semafroze
     if(waiting <= 0){
         return;
     }

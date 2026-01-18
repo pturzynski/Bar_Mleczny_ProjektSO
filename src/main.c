@@ -1,9 +1,16 @@
 #include "include/ipc.h"
 
 volatile sig_atomic_t running = 1; 
+volatile sig_atomic_t fireAlarm = 0;
 
 void handle_signals(int sig){
-    running = 0;
+    if(sig == SIGINT || sig == SIGTERM){
+        running = 0;
+    }
+    if(sig == SIGUSR2){
+        fireAlarm = 1;
+        running = 0;
+    }
 }
 
 int main(){
@@ -13,6 +20,7 @@ int main(){
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGUSR2, &sa, NULL);
 
     int x1, x2, x3, x4;
     printf("Podaj liczbe stolikow kolejno: 1-os, 2-os, 3-os, 4-os (oddziel spacja)\n");
@@ -24,8 +32,9 @@ int main(){
     }
     int maxTables = x1 + x2 + (2*x3) + x4; 
     bar = init_ipc(x1, x2, x3, x4, maxTables);
+    bar->mainPid = getpid();
 
-    int pid_generator = fork();
+    pid_t pid_generator = fork();
     if (pid_generator == 0){
         execl("bin/generator", "Generator", NULL);
         perror("exec generator error\n");
@@ -36,7 +45,7 @@ int main(){
         exit(1);
     }
 
-    int pid_cashier = fork();
+    pid_t pid_cashier = fork();
     if (pid_cashier == 0){
         execl("bin/cashier", "Kasjer", NULL);
         perror("exec cashier error\n");
@@ -47,7 +56,7 @@ int main(){
         exit(1);
     }
     
-    int pid_worker = fork();
+    pid_t pid_worker = fork();
     if (pid_worker == 0){
         execl("bin/worker", "Pracownik", NULL);
         perror("exec cashier error\n");

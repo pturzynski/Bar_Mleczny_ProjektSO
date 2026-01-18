@@ -9,6 +9,7 @@ void print_menu(){
 
 int main(){
     BarState *bar = join_ipc();
+    msgbuf msg;
     int option;
     while(1){
         print_menu();
@@ -20,43 +21,33 @@ int main(){
         }
         switch(option){
             case 1:
-                semlock(SEM_MEMORY);
-                if(bar->flagDoubleX3 != 0){
-                    printf("Juz raz podwoiles stoliki\n");
-                    break;
+                if(bar->flagDoubleX3 == 0){
+                    printf("Liczba stolikow x3 aktualnie: %d\n", bar->x3);
+                    kill(bar->workerPid, SIGUSR1);
+                    msgReceive(msgStaff, &msg, MTYPE_STAFF, 0);
+                    if(msg.success == 1){
+                        printf("Podwojono liczbe stolikow 3-osobowych. Teraz x3 = %d, allTables = %d\n", bar->x3, bar->allTables);
+                    }
+                    else{
+                        printf("Nie udalo sie podwoic stolikow\n");
+                    }
                 }
                 else{
-                    int x3 = bar->x3;
-                    int newTables = bar->allTables + x3;
-                    if(newTables > bar->maxTables){
-                        printf("Nie mozna podwoic stolikow\n");
-                        semunlock(SEM_MEMORY);
-                        break;
-                    }
-                    int ind = bar->allTables;
-                    for(int i = 0; i < x3; i++){
-                        bar->tables[ind].id = ind;
-                        bar->tables[ind].capacity = 3;
-                        bar->tables[ind].whoSits = 0;
-                        bar->tables[ind].freeSlots = 3;
-                        bar->tables[ind].isReserved = 0;
-                        ind++;
-                    }
-                    bar->x3 += x3;
-                    bar->allTables = newTables;
-                    bar->maxClients += 3 * x3;
-                    bar->flagDoubleX3 = 1;
-                    semunlock(SEM_MEMORY);
-                    printf("Podwoilem liczbe stolikow 3-osobowych. Teraz x3 = %d, allTables = %d\n", bar->x3, bar->allTables);
+                    printf("Juz raz podwojono stoliki x3\n");
                 }
                 break;
             case 2:
                 semlock(SEM_MEMORY);
                 printf("%d\n", bar->maxClients);
                 printf("%d\n", bar->clients);
+                semunlock(SEM_MEMORY);
                 break;
             case 3:
-                printf("3\n");
+                semlock(SEM_MEMORY);
+                bar->flagFire = 1;
+                semunlock(SEM_MEMORY);
+                sem_wakeWaiting();
+                kill(bar->mainPid, SIGUSR2);
                 break;
             case 4:
                 detach_ipc();
