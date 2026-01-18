@@ -3,3 +3,5 @@ obj/
 logs/
 *.o
 .vscode/
+main
+manager

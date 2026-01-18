@@ -1,7 +1,7 @@
 #ifndef IPC_H
 #define IPC_H
 
-#define MAX_PROCESSES 10000//maksymalna liczba procesow do stworzenia
+#define MAX_PROCESSES 5000//maksymalna liczba procesow do stworzenia
 #define KEY_SHMEM '!'
 #define KEY_SEM '@'
 
@@ -76,6 +76,7 @@ void semlock(int sem_num);
 void semunlock(int sem_num);
 void sem_closeDoor(int sem_num, int groupSize);
 void sem_openDoor(int sem_num, int groupSize);
+void sem_wakeWaiting(int sem_num);
 
 void msgSend(int dest, msgbuf *msg);
 int msgReceive(int src, msgbuf *msg, long type, int nowait);

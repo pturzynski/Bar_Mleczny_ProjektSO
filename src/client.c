@@ -63,12 +63,12 @@ int main(){
                     }
                 }
             if(foundTable != -1){
-                semunlock(SEM_MEMORY);
                 break;
             }
         }
+        semunlock(SEM_MEMORY);
+
         if(foundTable == -1){
-            semunlock(SEM_MEMORY);
             semlock(SEM_SEARCH);
         }
     }
@@ -79,7 +79,7 @@ int main(){
     msgReceive(msgClient, &msg, getpid(), 0);
 
     printf(CLIENT_COL "[KLIENT %d] Jemy\n" RESET, getpid());
-    sleep(1);
+    //sleep(1);
 
     semlock(SEM_MEMORY);
     bar->tables[foundTable].freeSlots += groupSize;
@@ -88,7 +88,8 @@ int main(){
     }
     bar->clients -= groupSize;
     semunlock(SEM_MEMORY);
-    semunlock(SEM_SEARCH);
+
+    sem_wakeWaiting(SEM_SEARCH);
     sem_openDoor(SEM_DOOR, groupSize);
     semunlock(SEM_GENERATOR);
 

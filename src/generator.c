@@ -44,7 +44,8 @@ int main(){
         }
         else if (pid == -1){
             semunlock(SEM_GENERATOR);
-            continue;
+            perror("[GENERATOR] fork error");
+            exit(1);
         }
     }
 

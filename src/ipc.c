@@ -318,6 +318,16 @@ void sem_openDoor(int sem_num, int groupSize){
     }
 }
 
+void sem_wakeWaiting(int sem_num){
+    int waiting = semctl(semid, sem_num, GETNCNT); //getncnt - ile klientow spi na semafroze
+    if(waiting <= 0){
+        return;
+    }
+    for(int i = 0; i < waiting; i++){
+        semunlock(SEM_SEARCH);
+    }
+}
+
 void msgSend(int dest, msgbuf *msg){
     while(1){
         if (msgsnd(dest, msg, msgSize, 0) == -1){
