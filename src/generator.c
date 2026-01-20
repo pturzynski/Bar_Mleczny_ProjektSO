@@ -1,18 +1,31 @@
 #include "include/ipc.h"
 #include <signal.h>
 
-volatile sig_atomic_t running = 1; 
+volatile sig_atomic_t running = 1;
 
 void handle_sigchld(int sig){
-    while(waitpid(-1, NULL, WNOHANG) > 0);
+    if(sig == SIGCHLD){
+        while(waitpid(-1, NULL, WNOHANG) > 0);
+    }
 }
 
-void handle_signals(int sig){
-    running = 0;
+void handle_signal(int sig){
+    if(sig == SIGINT || sig == SIGTERM){
+        detach_ipc();
+        exit(0);
+    }
+    if(sig == SIGQUIT){
+        detach_ipc();
+        exit(0);
+    }
 }
 
 int main(){
     BarState *bar = join_ipc();
+    semlock(SEM_MEMORY);
+    bar->generatorPid = getpid();
+    semunlock(SEM_MEMORY);
+    
     struct sigaction sa;
     
     //sigclhd
@@ -22,12 +35,13 @@ int main(){
     sigaction(SIGCHLD, &sa, NULL);
 
     //sigterm sigint
-    sa.sa_handler = handle_signals;
+    sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
-
+    sigaction(SIGQUIT, &sa, NULL);
+    
     while(running){
         semlock(SEM_GENERATOR);
 

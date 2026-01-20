@@ -1,39 +1,48 @@
 #include "include/ipc.h"
 
+void handle_signal(int sig){
+    if (sig == SIGQUIT){
+        printf(CLIENT_COL "[KLIENT %d] POZAR! UCIEKAMY\n" RESET, getpid());
+        detach_ipc();
+        exit(0);
+    }
+}
+
 int main(){
+    struct sigaction sa;
+    sa.sa_handler = handle_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGQUIT, &sa, NULL);
+    
     BarState *bar = join_ipc();
     msgbuf msg;
+
     srand(time(NULL) ^ getpid() << 16);
-
     int groupSize = (rand() % 3 + 1);
+
     sem_closeDoor(SEM_DOOR, groupSize);
-
-    semlock(SEM_MEMORY);
-    bar->clients += groupSize;
-    semunlock(SEM_MEMORY);
-
-    printf(CLIENT_COL "[KLIENT %d] %d osob wchodzi do baru\n" RESET, getpid(), groupSize);    
     
     int ifOrder = rand() % 101;
     if(ifOrder <= 5){
-        semlock(SEM_MEMORY);
-        bar->clients -= groupSize;
-        semunlock(SEM_MEMORY);
-
-        printf(CLIENT_COL "[KLIENT %d] Rezygnujemy z zamowienia. Wychodzimy z baru!\n" RESET, getpid());
-
+        printf(CLIENT_COL "[KLIENT %d] Nie zamawiamy nic!\n" RESET, getpid());
         sem_openDoor(SEM_DOOR, groupSize);
         semunlock(SEM_GENERATOR);
         detach_ipc();  
         return 0;
     }
 
+    semlock(SEM_MEMORY);
+    bar->clients += groupSize;
+    semunlock(SEM_MEMORY);
+    printf(CLIENT_COL "[KLIENT %d] Idzimy zamowic posilek (%d osob)\n" RESET, getpid(), groupSize);    
+
     int pid = getpid();
     msg.mtype = MTYPE_CASHIER;
     msg.pid = pid;
     printf(CLIENT_COL "[KLIENT %d] Zamawiamy jedzenie\n" RESET, getpid());
     msgSend(msgCashier, &msg);
-    msgReceive(msgClient, &msg, getpid(), 0);
+    msgReceive(msgClient, &msg, getpid());
     if(msg.payed != 1){
         printf(CLIENT_COL "[KLIENT %d] Platnosc sie nie powiodla, wychodze!!\n" RESET, getpid());
         semlock(SEM_MEMORY);
@@ -85,10 +94,10 @@ int main(){
     msg.pid = pid;
     printf(CLIENT_COL "[KLIENT %d] Odbieramy zamowienie!\n" RESET, getpid());
     msgSend(msgWorker, &msg);
-    msgReceive(msgClient, &msg, getpid(), 0);
+    msgReceive(msgClient, &msg, getpid());
     printf(CLIENT_COL "[KLIENT %d] Siadamy przy stoliku id %d (%d osobowy, siedzi przy nim %d osob)\n" RESET, getpid(), foundTable, cap, whos);
     printf(CLIENT_COL "[KLIENT %d] Jemy\n" RESET, getpid());
-
+    sleep(2);
     //zwalnianie stolika
     semlock(SEM_MEMORY);
     bar->tables[foundTable].freeSlots += groupSize;
@@ -100,7 +109,7 @@ int main(){
 
     printf(CLIENT_COL "[KLIENT %d] Odnosimy naczynia i opuszczamy bar (%d osob)\n" RESET, getpid(), groupSize);
     
-    sem_wakeWaiting();
+    sem_wakeAll(SEM_SEARCH);
     sem_openDoor(SEM_DOOR, groupSize);
     semunlock(SEM_GENERATOR);
     detach_ipc();

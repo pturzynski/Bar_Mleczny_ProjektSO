@@ -8,7 +8,6 @@ int semid = -1;
 int msgClient = -1;
 int msgCashier = -1;
 int msgWorker = -1; 
-int msgStaff = -1;
 
 static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
@@ -53,12 +52,10 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     bar->x4 = x4;
     bar->allTables = x1 + x2 + x3 + x4;
     bar->maxTables = maxTables;
-    bar->flagReservation = 0;
-    bar->flagDoubleX3 = 0;
-    bar->flagFire = 0;
     bar->clients = 0;
     bar->workerPid = 0;
     bar->mainPid = 0;
+    bar->cashierPid = 0;
     bar->maxClients = 1*x1 + 2*x2 + 3*x3 + 4*x4;
 
     int ind = 0;
@@ -102,7 +99,7 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
 }
 
 //semafory
-int init_semaphores(int max_clients){
+int init_semaphores(){
     key_t key = getKey(KEY_SEM);
 
     semid = semget(key, SEMNUMBER, IPC_CREAT | 0600);
@@ -140,17 +137,16 @@ void init_queue(){
     msgClient = msgget(getKey('A'), IPC_CREAT | 0600);
     msgCashier = msgget(getKey('B'), IPC_CREAT | 0600);
     msgWorker = msgget(getKey('C'), IPC_CREAT | 0600);
-    msgStaff = msgget(getKey('D'), IPC_CREAT | 0600);
 
-    if(msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1){
+    if(msgClient == -1 || msgCashier == -1 || msgWorker == -1){
         perror("error msgget");
         exit(1);
     }
 }
 
 BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables){
-    BarState *bar = init_shmem(x1, x2, x3, x4, maxTables);
-    semid = init_semaphores(bar->maxClients);
+    BarState *bar = init_shmem(x1, x2, x3, x4, maxTables); 
+    semid = init_semaphores();
     init_queue();
     return bar;
 }
@@ -184,9 +180,8 @@ BarState* join_ipc(){
     msgClient = msgget(getKey('A'), 0600);
     msgCashier = msgget(getKey('B'), 0600);
     msgWorker = msgget(getKey('C'), 0600);
-    msgStaff = msgget(getKey('D'), 0600);
 
-    if (msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1) {
+    if (msgClient == -1 || msgCashier == -1 || msgWorker == -1) {
         perror("msgget join error");
         exit(1);
     }
@@ -226,10 +221,7 @@ void cleanup_ipc() {
     if(msgctl(msgWorker, IPC_RMID, NULL) == -1) {
         perror("cleanup msgWorker error");
     }
-    if(msgctl(msgStaff, IPC_RMID, NULL) == -1) {
-        perror("cleanup msgStaff error");
-    }
-    msgClient = msgCashier = msgWorker = msgStaff = -1;
+    msgClient = msgCashier = msgWorker = -1;
 }
 
 void semlock(int sem_num){
@@ -320,13 +312,13 @@ void sem_openDoor(int sem_num, int groupSize){
     }
 }
 
-void sem_wakeWaiting(){
-    int waiting = semctl(semid, SEM_SEARCH, GETNCNT); //getncnt - ile klientow spi na semafroze
+void sem_wakeAll(int sem_num){
+    int waiting = semctl(semid, sem_num, GETNCNT); //getncnt - ile klientow spi na semafroze
     if(waiting <= 0){
         return;
     }
     for(int i = 0; i < waiting; i++){
-        semunlock(SEM_SEARCH);
+        semunlock(sem_num);
     }
 }
 
@@ -346,15 +338,10 @@ void msgSend(int dest, msgbuf *msg){
     }
 }
 
-int msgReceive(int src, msgbuf *msg, long type, int nowait){
-    int flag = 0;
-    if (nowait == 1) {
-        flag = IPC_NOWAIT;
-    }
-
+int msgReceive(int src, msgbuf *msg, long type){
     int result;
     while(1){
-        result = msgrcv(src, msg, msgSize, type, flag);
+        result = msgrcv(src, msg, msgSize, type, 0);
         if (result == -1) {
             if(errno == EINTR){
                 continue;

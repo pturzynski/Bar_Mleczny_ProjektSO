@@ -15,7 +15,6 @@
 //mtype komunikatow
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
-#define MTYPE_STAFF 3
 
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
@@ -50,13 +49,12 @@ typedef struct{
     int x1, x2, x3, x4;
     int allTables;
     int maxTables;
-    int flagReservation;
-    int flagDoubleX3; //0 - mozna podwoic, 1 - nie mozna podwoic
-    int flagFire; 
     int clients;
     int maxClients;
     pid_t workerPid;
     pid_t mainPid;
+    pid_t cashierPid;
+    pid_t generatorPid;
     Table tables[];
 } BarState;
 
@@ -64,12 +62,11 @@ typedef struct{
     long int mtype;
     int pid; 
     int payed; //0 - nie zaplacone, 1 - zaplacone 
-    int success; //do komunikacji pracownik -> menadzer (0 - brak sukcesu, 1 - udalo sie)
 } msgbuf;
 
 key_t getKey(char id);
 BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables);
-int init_semaphores(int max_clients);
+int init_semaphores();
 void init_queue();
 BarState* init_ipc(int x1, int x2, int x3, int x4, int maxTables);
 BarState* join_ipc();
@@ -80,15 +77,14 @@ void semlock(int sem_num);
 void semunlock(int sem_num);
 void sem_closeDoor(int sem_num, int groupSize);
 void sem_openDoor(int sem_num, int groupSize);
-void sem_wakeWaiting(); //budzi czekajacych na semaforze SEM_SEARCH
+void sem_wakeAll(int sem_num); //budzi czekajacych na semaforze
 
 void msgSend(int dest, msgbuf *msg);
-int msgReceive(int src, msgbuf *msg, long type, int nowait);
+int msgReceive(int src, msgbuf *msg, long type);
 
 extern int msgClient;
 extern int msgCashier;
 extern int msgWorker;
-extern int msgStaff;
 extern BarState *bar;
 
 #endif
