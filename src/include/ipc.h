@@ -21,6 +21,8 @@
 #define CLIENT_COL "\033[33m" //zolty
 #define WORKER_COL "\033[32m" //zielony
 
+#define LOG_FILE "bar_log.txt"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +38,8 @@
 #include <time.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
+#include <sys/file.h>
 
 typedef struct{
     int id;
@@ -53,8 +57,7 @@ typedef struct{
     int maxClients;
     pid_t workerPid;
     pid_t mainPid;
-    pid_t cashierPid;
-    pid_t generatorPid;
+    pid_t managerPid;
     Table tables[];
 } BarState;
 
@@ -73,18 +76,20 @@ BarState* join_ipc();
 void detach_ipc();
 void cleanup_ipc();
 
-void semlock(int sem_num);
-void semunlock(int sem_num);
-void sem_closeDoor(int sem_num, int groupSize);
-void sem_openDoor(int sem_num, int groupSize);
-void sem_wakeAll(int sem_num); //budzi czekajacych na semaforze
+int semlock(int sem_num);
+int semunlock(int sem_num);
+int sem_closeDoor(int sem_num, int groupSize);
+int sem_openDoor(int sem_num, int groupSize);
+int sem_wakeAll(int sem_num); //budzi czekajacych na semaforze
 
-void msgSend(int dest, msgbuf *msg);
+int msgSend(int dest, msgbuf *msg);
 int msgReceive(int src, msgbuf *msg, long type);
 
 extern int msgClient;
 extern int msgCashier;
 extern int msgWorker;
 extern BarState *bar;
+
+void logger(const char *format, ...);
 
 #endif

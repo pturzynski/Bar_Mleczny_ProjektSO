@@ -5,3 +5,4 @@ logs/
 .vscode/
 main
 manager
+bar_log.txt

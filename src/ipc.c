@@ -55,7 +55,7 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     bar->clients = 0;
     bar->workerPid = 0;
     bar->mainPid = 0;
-    bar->cashierPid = 0;
+    bar->managerPid = 0;
     bar->maxClients = 1*x1 + 2*x2 + 3*x3 + 4*x4;
 
     int ind = 0;
@@ -224,137 +224,144 @@ void cleanup_ipc() {
     msgClient = msgCashier = msgWorker = -1;
 }
 
-void semlock(int sem_num){
+int semlock(int sem_num){
     struct sembuf op; //p
     op.sem_num = sem_num;
     op.sem_op = -1;
     op.sem_flg = 0;
-    while (1){
-        if(semop(semid, &op, 1) == 0){
-            break;
-        }
+    if(semop(semid, &op, 1) == -1){
         if(errno == EINTR){
-            continue;
-        } 
+            return -1;
+        }
         if(errno == EIDRM || errno == EINVAL){
-            break;
-        }
-        else{
-            perror("semop lock error");
-            exit(1);
-        }
+            return -2;
+        } 
+        perror("semlock error");
+        exit(1);
     }
+    return 0;
 }
 
-void semunlock(int sem_num){
+int semunlock(int sem_num){
     struct sembuf op; //v
     op.sem_num = sem_num;
     op.sem_op = 1;
     op.sem_flg = 0;
-    while (1) {
-        if(semop(semid, &op, 1) == 0){
-            break;
-        }
+    if(semop(semid, &op, 1) == -1){
         if(errno == EINTR){
-            continue;
-        } 
+            return -1;
+        }
         if(errno == EIDRM || errno == EINVAL){
-            break;
+            return -2;
         }
-        else{
-            perror("semop unlock error");
-            exit(1);
-        }
+        perror("semunlock error");
+        exit(1);
     }
+    return 0;
 }
 
-void sem_closeDoor(int sem_num, int groupSize){
+int sem_closeDoor(int sem_num, int groupSize){
     struct sembuf op;
     op.sem_num = sem_num;
     op.sem_op = -groupSize;
     op.sem_flg = 0;
-    while (1) {
-        if(semop(semid, &op, 1) == 0){
-            break;
-        }
+    if(semop(semid, &op, 1) == -1){
         if(errno == EINTR){
-            continue;
-        } 
+            return -1;
+        }
         if(errno == EIDRM || errno == EINVAL){
-            break;
+            return -2;
         }
-        else{
-            perror("semop door lock error");
-            exit(1);
-        }
+        perror("semop door lock error");
+        exit(1);
     }
+    return 0;
 }
 
-void sem_openDoor(int sem_num, int groupSize){
+int sem_openDoor(int sem_num, int groupSize){
     struct sembuf op;
     op.sem_num = sem_num;
     op.sem_op = groupSize;
     op.sem_flg = 0;
-    while (1) {
-        if(semop(semid, &op, 1) == 0){
-            break;
-        }
+    if(semop(semid, &op, 1) == -1){
         if(errno == EINTR){
-            continue;
-        } 
+            return -1;
+        }
         if(errno == EIDRM || errno == EINVAL){
-            break;
+            return -2;
         }
-        else{
-            perror("semop door lock error");
-            exit(1);
-        }
+        perror("semop door unlock error");
+        exit(1);
     }
+    return 0;
 }
 
-void sem_wakeAll(int sem_num){
+int sem_wakeAll(int sem_num){
     int waiting = semctl(semid, sem_num, GETNCNT); //getncnt - ile klientow spi na semafroze
     if(waiting <= 0){
-        return;
+        return 0;
     }
     for(int i = 0; i < waiting; i++){
         semunlock(sem_num);
     }
 }
 
-void msgSend(int dest, msgbuf *msg){
-    while(1){
-        if (msgsnd(dest, msg, msgSize, 0) == -1){
-            if(errno == EINTR){
-                continue;
-            }
-            if(errno == EIDRM || errno == EINVAL){
-                return;
-            }
-            perror("msgsnd error");
-            exit(1);
+int msgSend(int dest, msgbuf *msg){
+    if(msgsnd(dest, msg, msgSize, 0) == -1){
+        if(errno == EINTR){
+            return -1;
         }
-        break;
+        if(errno == EIDRM || errno == EINVAL){
+            return -2;
+        }
+        perror("msgsnd error");
+        exit(1);
     }
+    return 0;
 }
 
 int msgReceive(int src, msgbuf *msg, long type){
-    int result;
-    while(1){
-        result = msgrcv(src, msg, msgSize, type, 0);
-        if (result == -1) {
-            if(errno == EINTR){
-                continue;
-            } 
-            if(errno == EIDRM){
-                break;
-            }
-            else{
-                perror("msgrcv error");
-                exit(1);
-            }
+    int result = msgrcv(src, msg, msgSize, type, 0);
+    if (result == -1) {
+        if(errno == EINTR){
+            return -1;
+        } 
+        if(errno == EIDRM || errno == EINVAL){
+            return -2;
         }
-        break;
+        perror("msgrcv error");
+        exit(1);
     }
     return result;
+}
+
+void logger(const char *format, ...){
+    va_list args1, args2;
+    va_start(args1, format);
+    va_copy(args2, args1);
+
+    sigset_t block_mask, old_mask;
+    sigfillset(&block_mask);
+    sigprocmask(SIG_BLOCK, &block_mask, &old_mask);
+
+    FILE *f = fopen(LOG_FILE, "a");
+    if(f != NULL){
+        int fd = fileno(f);
+        flock(fd, LOCK_EX);
+
+        vprintf(format, args1);
+        printf("\n");
+        fflush(stdout);
+
+        vfprintf(f, format, args2);
+        fprintf(f, "\n");
+        fflush(f);
+        
+        flock(fd, LOCK_UN);
+        fclose(f);
+    }
+    va_end(args1);
+    va_end(args2);
+
+    sigprocmask(SIG_SETMASK, &old_mask, NULL);
 }

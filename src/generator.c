@@ -15,17 +15,13 @@ void handle_signal(int sig){
         exit(0);
     }
     if(sig == SIGQUIT){
-        detach_ipc();
-        exit(0);
+        running = 0;
     }
 }
 
 int main(){
     BarState *bar = join_ipc();
-    semlock(SEM_MEMORY);
-    bar->generatorPid = getpid();
-    semunlock(SEM_MEMORY);
-    
+       
     struct sigaction sa;
     
     //sigclhd
@@ -43,7 +39,9 @@ int main(){
     sigaction(SIGQUIT, &sa, NULL);
     
     while(running){
-        semlock(SEM_GENERATOR);
+        if(semlock(SEM_GENERATOR) == -1){
+            continue;
+        }
 
         if(!running){
             semunlock(SEM_GENERATOR);
@@ -54,15 +52,18 @@ int main(){
         if (pid == 0){
             execl("bin/client", "klient", NULL);
             perror("[GENERATOR] execl failed");
+            detach_ipc();
             exit(1);
         }
         else if (pid == -1){
             semunlock(SEM_GENERATOR);
             perror("[GENERATOR] fork error");
+            detach_ipc();
             exit(1);
         }
     }
 
+    while(wait(NULL) > 0);
     detach_ipc();
     return 0;
 }

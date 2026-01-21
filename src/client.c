@@ -2,13 +2,15 @@
 
 void handle_signal(int sig){
     if (sig == SIGQUIT){
-        printf(CLIENT_COL "[KLIENT %d] POZAR! UCIEKAMY\n" RESET, getpid());
+        logger(CLIENT_COL "[KLIENT %d] POZAR! UCIEKAMY" RESET, getpid());
         detach_ipc();
         exit(0);
     }
 }
 
 int main(){
+    srand(time(NULL) ^ getpid() << 16);
+
     struct sigaction sa;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
@@ -18,11 +20,9 @@ int main(){
     BarState *bar = join_ipc();
     msgbuf msg;
 
-    srand(time(NULL) ^ getpid() << 16);
     int groupSize = (rand() % 3 + 1);
-
     sem_closeDoor(SEM_DOOR, groupSize);
-    
+
     int ifOrder = rand() % 101;
     if(ifOrder <= 5){
         printf(CLIENT_COL "[KLIENT %d] Nie zamawiamy nic!\n" RESET, getpid());
