@@ -17,12 +17,16 @@
 #define MTYPE_WORKER 2
 #define MTYPE_RESERVATION 3
 
-#define RESET   "\033[0m"
+#define RESET "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
 #define CLIENT_COL "\033[33m" //zolty
 #define WORKER_COL "\033[32m" //zielony
 
 #define LOG_FILE "bar_log.txt"
+
+#define EXIT_SUCCESS 10 //klient zamkniety poprawnie (przeszedl caly bar)
+#define EXIT_RESERVED 11 //klient wychodzi bo wszystkie stoliki sa zarezerwowane
+#define EXIT_NO_ORDER 12 //klient wychodzi bez zamawiania (ifOrder <=5)
 
 #include <string.h>
 #include <stdio.h>
@@ -83,17 +87,19 @@ int semlock(int sem_num, int undo);
 int semunlock(int sem_num, int undo);
 int sem_closeDoor(int sem_num, int groupSize, int undo);
 int sem_openDoor(int sem_num, int groupSize, int undo);
-int sem_wakeAll(int sem_num); //budzi czekajacych na semaforze
+int sem_wakeOne(int sem_num); //budzi czekajacych na semaforze
 
 int msgSend(int dest, msgbuf *msg);
 int msgReceive(int src, msgbuf *msg, long type);
 
-extern int msgClient;
-extern int msgCashier;
-extern int msgWorker;
+extern int msgOrder;
+extern int msgFood;
 extern int msgStaff;
 extern BarState *bar;
+extern int loggerFile;
 
+void loggerOpen();
+void loggerClose();
 void logger(const char *format, ...);
 
 #endif

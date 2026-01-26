@@ -1,16 +1,16 @@
 #include "include/ipc.h"
 
 BarState *bar = NULL;
+static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
 int shmid = -1;
 int semid = -1;
 
-int msgClient = -1;
-int msgCashier = -1;
-int msgWorker = -1; 
+int msgOrder = -1;
+int msgFood = -1;
 int msgStaff = -1;
 
-static const int msgSize = sizeof(msgbuf) - sizeof(long int);
+int loggerFile = -1;
 
 key_t getKey(char id){
     const char* path = "keyfile";
@@ -145,12 +145,11 @@ int init_semaphores(){
 
 //kolejka
 void init_queue(){
-    msgClient = msgget(getKey('A'), IPC_CREAT | IPC_EXCL | 0600);
-    msgCashier = msgget(getKey('B'), IPC_CREAT | IPC_EXCL |0600);
-    msgWorker = msgget(getKey('C'), IPC_CREAT | IPC_EXCL |0600);
-    msgStaff = msgget(getKey('D'), IPC_CREAT | IPC_EXCL | 0600);
+    msgOrder = msgget(getKey('A'), IPC_CREAT | IPC_EXCL | 0600);
+    msgFood = msgget(getKey('B'), IPC_CREAT | IPC_EXCL |0600);
+    msgStaff = msgget(getKey('C'), IPC_CREAT | IPC_EXCL | 0600);
 
-    if(msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1){
+    if(msgOrder == -1 || msgFood == -1 || msgStaff == -1){
         if(errno == EEXIST){
             fprintf(stderr, "Blad, kolejki komunikatow juz istnieja\n");
         }
@@ -194,12 +193,11 @@ BarState* join_ipc(){
         exit(1); 
     }
 
-    msgClient = msgget(getKey('A'), 0600);
-    msgCashier = msgget(getKey('B'), 0600);
-    msgWorker = msgget(getKey('C'), 0600);
-    msgStaff = msgget(getKey('D'), 0600);
+    msgOrder = msgget(getKey('A'), 0600);
+    msgFood = msgget(getKey('B'), 0600);
+    msgStaff = msgget(getKey('C'), 0600);
 
-    if (msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1) {
+    if (msgOrder == -1 || msgFood == -1 || msgStaff == -1){
         perror("msgget join error");
         exit(1);
     }
@@ -230,19 +228,16 @@ void cleanup_ipc() {
         semid = -1;
     }
 
-    if(msgctl(msgClient, IPC_RMID, NULL) == -1) {
-        perror("cleanup msgClient error");
+    if(msgctl(msgOrder, IPC_RMID, NULL) == -1) {
+        perror("cleanup msgOrder error");
     }
-    if(msgctl(msgCashier, IPC_RMID, NULL) == -1) {
-        perror("cleanup msgCashier error");
-    }
-    if(msgctl(msgWorker, IPC_RMID, NULL) == -1) {
-        perror("cleanup msgWorker error");
+    if(msgctl(msgFood, IPC_RMID, NULL) == -1) {
+        perror("cleanup msgFood error");
     }
     if(msgctl(msgStaff, IPC_RMID, NULL) == -1){
         perror("cleanup msgStaff error");
     }
-    msgClient = msgCashier = msgWorker = msgStaff = -1;
+    msgOrder = msgFood = msgStaff = -1;
 }
 
 int semlock(int sem_num, int undo){
@@ -348,15 +343,12 @@ int sem_openDoor(int sem_num, int groupSize, int undo){
     return 0;
 }
 
-int sem_wakeAll(int sem_num){
+int sem_wakeOne(int sem_num){
     int waiting = semctl(semid, sem_num, GETNCNT); //getncnt - ile klientow spi na semafroze
     if(waiting <= 0){
         return 0;
     }
-    for(int i = 0; i < waiting; i++){
-        semunlock(sem_num, 0);
-    }
-
+    semunlock(sem_num, 0);
     return 0;
 }
 
@@ -392,27 +384,58 @@ int msgReceive(int src, msgbuf *msg, long type){
     return result;
 }
 
+void loggerOpen(){
+    loggerFile = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0666);
+    if(loggerFile == -1){
+        perror("Błąd otwarcia pliku logów w logger_open");
+    }
+}
+
+void loggerClose(){
+    if(loggerFile != -1){
+        close(loggerFile);
+        loggerFile = -1;
+    }
+}
+
 void logger(const char *format, ...) {
     char buffer[1024];
     va_list args;
+
     va_start(args, format);
     int len = vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    if (len <= 0){
+    
+    if(len <= 0){
         return;
     }
 
-    if (len < (int)sizeof(buffer) - 1) {
+    if(len < (int)sizeof(buffer) - 1){
         buffer[len++] = '\n';
         buffer[len] = '\0';
     }
 
     write(STDOUT_FILENO, buffer, len);
-    int fd = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0666);
-    if (fd != -1) {
-        flock(fd, LOCK_EX); 
-        write(fd, buffer, len);
-        flock(fd, LOCK_UN);
-        close(fd);
+
+    if(loggerFile != -1){
+        char *src = buffer;
+        char *dst = buffer;
+        while(*src){
+            if(*src == '\033'){
+                while(*src && *src != 'm'){
+                    src++;
+                }
+                if(*src) src++;
+            } 
+            else{
+                *dst++ = *src++;
+            }
+        }
+        *dst = '\0';
+
+        int clean_len = dst - buffer;
+        flock(loggerFile, LOCK_EX); 
+        write(loggerFile, buffer, clean_len);
+        flock(loggerFile, LOCK_UN);
     }
 }

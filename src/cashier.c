@@ -4,17 +4,20 @@ int income = 0;
 
 void handle_signal(int sig){
     if(sig == SIGINT){
-        logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);    
+        logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);
+        loggerClose(); 
         _exit(0);
     }
     if(sig == SIGTERM){
         logger(CASHIER_COL "[KASJER] Klienci ewakuowani, zamykam kase i uciekam" RESET);
         logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);
+        loggerClose();
         _exit(0);
     }
 }
 
 int main(){
+    loggerOpen();
     struct sigaction sa;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
@@ -27,7 +30,7 @@ int main(){
     logger(CASHIER_COL "[KASJER] Kasa zosatała otwarta" RESET);
     int running = 1;
     while(running){
-        int res = msgReceive(msgCashier, &msg, MTYPE_CASHIER);
+        int res = msgReceive(msgOrder, &msg, MTYPE_CASHIER);
         if(res == -1){
             continue;
         }
@@ -37,9 +40,11 @@ int main(){
         logger(CASHIER_COL "[KASJER] Klient %d zaplacil %d za zamowienie" RESET, msg.pid, msg.price);
         income += msg.price;
         msg.mtype = msg.pid;
-        msgSend(msgClient, &msg);
+        msgSend(msgOrder, &msg);
     }
     logger(CASHIER_COL "[KASJER] Kasa zamknieta" RESET);
+    loggerClose();
+    
     detach_ipc();
     return 0;
 }

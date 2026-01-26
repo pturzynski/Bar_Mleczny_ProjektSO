@@ -12,16 +12,19 @@ void handle_signal(int sig){
         reservation = 1;
     }
     if(sig == SIGINT){
+        loggerClose();
         logger(WORKER_COL "[PRACOWNIK] Koncze prace!" RESET);
         _exit(0);
     }
     if(sig == SIGTERM){
         logger(WORKER_COL "[PRACOWNIK] Klienci ewakuowani, uciekam tez!" RESET);
+        loggerClose();
         _exit(0);
     }
 }
 
 int main(){
+    loggerOpen();
     bar = join_ipc();
     msgbuf msg;
 
@@ -114,7 +117,7 @@ int main(){
             }
             reservation = 0;
         }
-        int res = msgReceive(msgWorker, &msg, MTYPE_WORKER);
+        int res = msgReceive(msgFood, &msg, MTYPE_WORKER);
         if(res == -1){
             continue;
         }
@@ -124,10 +127,11 @@ int main(){
 
         logger(WORKER_COL "[PRACOWNIK] Wydaje zamowienie dla %d" RESET, msg.pid);
         msg.mtype = msg.pid;
-        msgSend(msgClient, &msg);
+        msgSend(msgFood, &msg);
     }
 
     logger(WORKER_COL "[PRACOWNIK] Koncze prace!" RESET);
+    loggerClose();
     detach_ipc();
     return 0;
 }

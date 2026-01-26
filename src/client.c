@@ -36,22 +36,25 @@ void* clientEatTime(void* arg){
     unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)pthread_self();
     int eatTime = (rand_r(&seed) % 5) + 2;
     logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Jem (%d sek)!" RESET, getpid(), id, eatTime);
-    sleep(eatTime);
+    //sleep(eatTime);
 
     return NULL;
 }
 
 void handle_signal(int sig) {
     if(sig == SIGINT){
+        loggerClose();
         _exit(0);
     }
     if(sig == SIGTERM){
         //logger(CLIENT_COL "[KLIENT %d] POZAR!!!" RESET, getpid());
+        loggerClose();
         _exit(0);
     }
 }
 
 int main(){
+    loggerOpen();
     totalPrice = 0;
     
     struct sigaction sa;
@@ -73,6 +76,7 @@ int main(){
     if(ifOrder <= 5){
         logger(CLIENT_COL "[KLIENT %d] Nie zamawiamy nic!" RESET, getpid());
         sem_openDoor(SEM_DOOR, groupSize, 1);
+        loggerClose();
         detach_ipc();
         return 0;
     }
@@ -89,6 +93,7 @@ int main(){
     if(unreservedTables == 0){
         logger(CLIENT_COL "[KLIENT %d] Wszystkie stoliki są zarezerwowane, wychodzimy" RESET, getpid());
         sem_openDoor(SEM_DOOR, groupSize, 1);
+        loggerClose();
         detach_ipc();
         return 0;
     }
@@ -115,8 +120,9 @@ int main(){
             logger(CLIENT_COL "[KLIENT %d] Wszystkie stoliki zarezerwowane, wychodzimy" RESET, getpid());
             bar->clients -= groupSize;
             semunlock(SEM_MEMORY, 1);
-            sem_wakeAll(SEM_SEARCH);
+            sem_wakeOne(SEM_SEARCH);
             sem_openDoor(SEM_DOOR, groupSize, 1);
+            loggerClose();
             detach_ipc();
             exit(0);
         }
@@ -124,19 +130,18 @@ int main(){
         for(int i = groupSize; i<=4; i++){
             for(int j = 0; j < bar->allTables; j++){
                 Table *tab = &bar->tables[j];
+                if(groupSize == tab->whoSits && tab->freeSlots >= groupSize){
+                    foundTable = tab->id;
+                    tab->freeSlots -= groupSize;
+                    break;
+                }
                 if(i == tab->capacity && tab->isReserved == 0 && tab->whoSits == 0){
                     foundTable = tab->id;
                     tab->freeSlots -= groupSize;
                     tab->whoSits = groupSize;
                     break;
                 }
-                if(groupSize == tab->whoSits && tab->freeSlots >= groupSize){
-                    foundTable = tab->id;
-                    tab->freeSlots -= groupSize;
-                    break;
-                    }
-                }
-
+            }
             if(foundTable != -1){
                 break;
             }
@@ -163,17 +168,17 @@ int main(){
         }
     }
 
-    logger(CLIENT_COL "[KLIENT %d | %d osob] Placimy" RESET, getpid(), groupSize);
     msg.mtype = MTYPE_CASHIER;
     msg.pid = getpid();
     msg.price = totalPrice;
-    msgSend(msgCashier, &msg);
-    msgReceive(msgClient, &msg, getpid());
+    msgSend(msgOrder, &msg);
+    msgReceive(msgOrder, &msg, getpid());
+    logger(CLIENT_COL "[KLIENT %d | %d osob] Zaplacalismy za jedzenie %d zl" RESET, getpid(), groupSize, totalPrice);
 
     msg.mtype = MTYPE_WORKER;
     msg.pid = getpid();
-    msgSend(msgWorker, &msg);
-    msgReceive(msgClient, &msg, getpid());
+    msgSend(msgFood, &msg);
+    msgReceive(msgFood, &msg, getpid());
 
     logger(CLIENT_COL "[KLIENT %d | %d osob] Odebralismy jedzenie od pracownika" RESET, getpid(), groupSize);
 
@@ -199,8 +204,9 @@ int main(){
     semunlock(SEM_MEMORY, 1);
 
     logger(CLIENT_COL "[KLIENT %d | %d osob] Odnosimy naczynia i opuszczamy bar" RESET, getpid(), groupSize);
-    sem_wakeAll(SEM_SEARCH);
+    sem_wakeOne(SEM_SEARCH);
     sem_openDoor(SEM_DOOR, groupSize, 1);
+    loggerClose();
     detach_ipc();
     return 0;
 }

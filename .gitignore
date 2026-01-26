@@ -3,6 +3,7 @@ obj/
 logs/
 *.o
 .vscode/
+keyfile
 main
 manager
 bar_log.txt

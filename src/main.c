@@ -3,6 +3,7 @@
 
 volatile sig_atomic_t running = 1; 
 volatile sig_atomic_t fire = 0;
+volatile int counter = 0;
 
 pthread_t id_generator = -1;
 pthread_t id_reaper = -1;
@@ -51,11 +52,15 @@ void* generatorRoutine(){
         if(pid == 0){
             execl("bin/client", "Klient", NULL);
             perror("execl client failed");
+            semunlock(SEM_GENERATOR, 0);
             _exit(1);
         }
         else if(pid == -1){
             semunlock(SEM_GENERATOR, 0);
             perror("generator fork error");
+        }
+        else{
+            counter++;
         }
     }
     return NULL;
@@ -110,10 +115,10 @@ int main(){
     bar = init_ipc(x1, x2, x3, x4, maxTables);
     bar->mainPid = getpid();
 
+    loggerOpen();
     logger("[MAIN] Bar uruchomiony");
 
     personel = 0;
-    
     pid_cashier = fork();
     if (pid_cashier == 0){
         setpgid(0, 0);
@@ -155,18 +160,13 @@ int main(){
         //usleep(10000);
     }
     
-    //semunlock(SEM_GENERATOR, 0);
     pthread_join(id_generator, NULL);
     pthread_join(id_reaper, NULL);
 
     if(fire == 1){
         logger("[MAIN] POZAR! Ewakuuje klientow");
         signal(SIGTERM, SIG_IGN);
-        if(personel > 0){
-            kill(-personel, SIGTERM);
-        }
         kill(0, SIGTERM);
-        logger("[MAIN] POZAR! Ewakuuje klientow");
         while(waitpid(0, NULL, 0) > 0){}
         logger("[MAIN] Klienci ewakuowani");
         if(personel > 0){
@@ -188,8 +188,11 @@ int main(){
         waitpid(pid_worker, NULL, 0);
     }
 
+    logger("Liczba stworzonych klientow: %d", counter);
     logger("[MAIN] Koniec symulacji");
+    loggerClose();
+
     detach_ipc();
     cleanup_ipc();
     return 0;
-}   
+}
