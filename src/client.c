@@ -69,12 +69,12 @@ int main(){
     srand(time(NULL) ^ getpid() << 16);
     int groupSize = (rand() % 3) + 1;
     int ifOrder = rand() % 101;
-
+    
     sem_closeDoor(SEM_DOOR, groupSize, 1);
-
+    logger(CLIENT_COL "[KLIENT %d | %d osob] Wchodzimy do baru!" RESET, getpid(), groupSize);
     //nie zamawiamy i wychodzimy
     if(ifOrder <= 5){
-        logger(CLIENT_COL "[KLIENT %d] Nie zamawiamy nic!" RESET, getpid());
+        logger(CLIENT_COL "[KLIENT %d | %d osob] Nie zamawiamy nic. Wychodzimy!" RESET, getpid(), groupSize);
         sem_openDoor(SEM_DOOR, groupSize, 1);
         loggerClose();
         detach_ipc();
@@ -91,7 +91,7 @@ int main(){
     }
     semunlock(SEM_MEMORY, 1);
     if(unreservedTables == 0){
-        logger(CLIENT_COL "[KLIENT %d] Wszystkie stoliki są zarezerwowane, wychodzimy" RESET, getpid());
+        logger(CLIENT_COL "[KLIENT %d | %d osob] Wszystkie stoliki sa zarezerwowane. Wychodzimy!" RESET, getpid(), groupSize);
         sem_openDoor(SEM_DOOR, groupSize, 1);
         loggerClose();
         detach_ipc();
@@ -103,7 +103,7 @@ int main(){
     bar->clients += groupSize;
     semunlock(SEM_MEMORY, 1);
 
-    logger(CLIENT_COL "[KLIENT %d] Szukamy stolika %d osobowego" RESET, getpid(), groupSize);
+    logger(CLIENT_COL "[KLIENT %d | %d osob] Szukamy stolika %d osobowego" RESET, getpid(), groupSize, groupSize);
     //szukanie stolika
 
     int foundTable = -1;
@@ -117,7 +117,7 @@ int main(){
             }
         }
         if(unreservedTables == 0){
-            logger(CLIENT_COL "[KLIENT %d] Wszystkie stoliki zarezerwowane, wychodzimy" RESET, getpid());
+            logger(CLIENT_COL "[KLIENT %d | %d osob] Wszystkie stoliki sa zarezerwowane. Wychodzimy" RESET, getpid(), groupSize);
             bar->clients -= groupSize;
             semunlock(SEM_MEMORY, 1);
             sem_wakeOne(SEM_SEARCH);
@@ -171,15 +171,18 @@ int main(){
     msg.mtype = MTYPE_CASHIER;
     msg.pid = getpid();
     msg.price = totalPrice;
+    semlock(SEM_ORDER, 1);
     msgSend(msgOrder, &msg);
     msgReceive(msgOrder, &msg, getpid());
-    logger(CLIENT_COL "[KLIENT %d | %d osob] Zaplacalismy za jedzenie %d zl" RESET, getpid(), groupSize, totalPrice);
+    semunlock(SEM_ORDER, 1);
+    logger(CLIENT_COL "[KLIENT %d | %d osob] Zaplacilismy za jedzenie %d zl" RESET, getpid(), groupSize, totalPrice);
 
     msg.mtype = MTYPE_WORKER;
     msg.pid = getpid();
+    semlock(SEM_FOOD, 1);
     msgSend(msgFood, &msg);
     msgReceive(msgFood, &msg, getpid());
-
+    semunlock(SEM_FOOD, 1);
     logger(CLIENT_COL "[KLIENT %d | %d osob] Odebralismy jedzenie od pracownika" RESET, getpid(), groupSize);
 
     if(groupSize > 1){

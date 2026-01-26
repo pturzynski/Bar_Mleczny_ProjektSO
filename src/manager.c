@@ -56,15 +56,15 @@ int main(){
                     if(success == 1){
                         doubleX3 = 1;
                         semlock(SEM_MEMORY, 1);
-                        printf("Podwojono stoliki 3 osobowe: bylo: %d teraz = %d allTables = %d\n", oldX3, bar->x3, bar->allTables);
+                        printf(RED "Podwojono stoliki 3 osobowe: bylo: %d teraz = %d allTables = %d\n" RESET, oldX3, bar->x3, bar->allTables);
                         semunlock(SEM_MEMORY, 1);
                     }
                     else{
-                        printf("Nie udalo sie podwoic liczby stolikow 3 osobowych\n");
+                        printf(RED "Nie udalo sie podwoic liczby stolikow 3 osobowych\n" RESET);
                     }
                 }
                 else{
-                    printf("Juz raz podwoiles stoliki 3 osobowe\n");
+                    printf(RED "Juz raz podwoiles stoliki 3 osobowe\n" RESET);
                 }
                 break;
             case 2:
@@ -158,7 +158,7 @@ int main(){
 
                     if(count > available){
                         dontSend = 1;
-                        printf("Nie ma tylu stolikow\n");
+                        printf(RED "Nie ma tylu stolikow\n" RESET);
                         break;
                     }
                     break;
@@ -182,7 +182,7 @@ int main(){
                 }
                 break;
             case 3:
-                printf("POZAR!!!\n");
+                printf(RED "POZAR!!!\n" RESET);
                 kill(-bar->mainPid, SIGTERM);
                 return 0;
             case 4:

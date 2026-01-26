@@ -6,23 +6,26 @@
 #define KEY_SEM '@'
 
 //semafory
-#define SEMNUMBER 4 //liczba semaforow
+#define SEMNUMBER 6 //liczba semaforow
 #define SEM_MEMORY 0 //semafor pamieci dzielonej
 #define SEM_GENERATOR 1 //semafor dla generatora
 #define SEM_DOOR 2 //drzwi do baru, ograniczone maxClients
 #define SEM_SEARCH 3 //semafor do petli szukania stolika dla klienta w client.c
+#define SEM_ORDER 4 //semafor do kolejki komunikatow msgOrder
+#define SEM_FOOD 5 //semafor do kolejki komunikatow msgFood
 
 //mtype komunikatow
-#define MTYPE_CASHIER 1
-#define MTYPE_WORKER 2
-#define MTYPE_RESERVATION 3
+#define MTYPE_CASHIER 1 //mtype do komunikacji z kasjerem
+#define MTYPE_WORKER 2 //mtype do komunikacji z pracownikiem
+#define MTYPE_RESERVATION 3 //mtype do rezerwacji stolikow (menadzer -> worker)
 
-#define RESET "\033[0m"
+//kolorki
+#define RESET "\033[0m" //reset
 #define CASHIER_COL "\033[34m" //niebieski
 #define CLIENT_COL "\033[33m" //zolty
 #define WORKER_COL "\033[32m" //zielony
 
-#define LOG_FILE "bar_log.txt"
+#define LOG_FILE "bar_log.txt" //plik logow
 
 #define EXIT_SUCCESS 10 //klient zamkniety poprawnie (przeszedl caly bar)
 #define EXIT_RESERVED 11 //klient wychodzi bo wszystkie stoliki sa zarezerwowane

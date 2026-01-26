@@ -125,15 +125,18 @@ int init_semaphores(){
         if(i == SEM_GENERATOR){
             value = MAX_PROCESSES;
         }
-
         if(i == SEM_DOOR){
             value = bar->maxClients;
         }
-
         if(i == SEM_SEARCH){
             value = 0;
         }
-
+        if(i == SEM_ORDER){
+            value = 100;
+        }
+        if(i == SEM_FOOD){
+            value = 100;
+        }
         if(semctl(semid, i, SETVAL, value) == -1) {
             perror("semctl SETVAL error (init)");
             exit(1);

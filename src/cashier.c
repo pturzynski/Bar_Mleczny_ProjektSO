@@ -27,7 +27,7 @@ int main(){
 
     bar = join_ipc();
     msgbuf msg;
-    logger(CASHIER_COL "[KASJER] Kasa zosatała otwarta" RESET);
+    logger(CASHIER_COL "[KASJER] Kasa zostala otwarta" RESET);
     int running = 1;
     while(running){
         int res = msgReceive(msgOrder, &msg, MTYPE_CASHIER);
@@ -37,14 +37,14 @@ int main(){
         if(res == -2){
             break;
         }
-        logger(CASHIER_COL "[KASJER] Klient %d zaplacil %d za zamowienie" RESET, msg.pid, msg.price);
+        logger(CASHIER_COL "[KASJER] Klient %d zaplacil %d zl za zamowienie" RESET, msg.pid, msg.price);
         income += msg.price;
         msg.mtype = msg.pid;
         msgSend(msgOrder, &msg);
     }
     logger(CASHIER_COL "[KASJER] Kasa zamknieta" RESET);
     loggerClose();
-    
+
     detach_ipc();
     return 0;
 }
