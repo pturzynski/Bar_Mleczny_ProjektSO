@@ -8,6 +8,7 @@ int semid = -1;
 int msgClient = -1;
 int msgCashier = -1;
 int msgWorker = -1; 
+int msgStaff = -1;
 
 static const int msgSize = sizeof(msgbuf) - sizeof(long int);
 
@@ -33,9 +34,14 @@ key_t getKey(char id){
 BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
     key_t key = getKey(KEY_SHMEM);
 
-    shmid = shmget(key, sizeof(BarState) + (maxTables * sizeof(Table)), IPC_CREAT | 0600);
+    shmid = shmget(key, sizeof(BarState) + (maxTables * sizeof(Table)), IPC_CREAT | IPC_EXCL | 0600);
     if(shmid == -1){
-        perror("shmget error (init)");
+        if(errno == EEXIST){
+            fprintf(stderr, "Blad, symulacja juz dziala w innym oknie\n");
+        }
+        else{
+            perror("shmget error (init)");
+        }
         exit(1);
     }
 
@@ -102,9 +108,14 @@ BarState* init_shmem(int x1, int x2, int x3, int x4, int maxTables){
 int init_semaphores(){
     key_t key = getKey(KEY_SEM);
 
-    semid = semget(key, SEMNUMBER, IPC_CREAT | 0600);
+    semid = semget(key, SEMNUMBER, IPC_CREAT | IPC_EXCL | 0600);
     if(semid == -1){
-        perror("semget error (init)");
+        if(errno == EEXIST){
+            fprintf(stderr, "Blad, semafory juz istnieja\n");
+        }
+        else{
+            perror("semget error (init)");
+        }
         exit(1);
     }
 
@@ -134,12 +145,18 @@ int init_semaphores(){
 
 //kolejka
 void init_queue(){
-    msgClient = msgget(getKey('A'), IPC_CREAT | 0600);
-    msgCashier = msgget(getKey('B'), IPC_CREAT | 0600);
-    msgWorker = msgget(getKey('C'), IPC_CREAT | 0600);
+    msgClient = msgget(getKey('A'), IPC_CREAT | IPC_EXCL | 0600);
+    msgCashier = msgget(getKey('B'), IPC_CREAT | IPC_EXCL |0600);
+    msgWorker = msgget(getKey('C'), IPC_CREAT | IPC_EXCL |0600);
+    msgStaff = msgget(getKey('D'), IPC_CREAT | IPC_EXCL | 0600);
 
-    if(msgClient == -1 || msgCashier == -1 || msgWorker == -1){
-        perror("error msgget");
+    if(msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1){
+        if(errno == EEXIST){
+            fprintf(stderr, "Blad, kolejki komunikatow juz istnieja\n");
+        }
+        else{
+            perror("error msgget");
+        }
         exit(1);
     }
 }
@@ -180,8 +197,9 @@ BarState* join_ipc(){
     msgClient = msgget(getKey('A'), 0600);
     msgCashier = msgget(getKey('B'), 0600);
     msgWorker = msgget(getKey('C'), 0600);
+    msgStaff = msgget(getKey('D'), 0600);
 
-    if (msgClient == -1 || msgCashier == -1 || msgWorker == -1) {
+    if (msgClient == -1 || msgCashier == -1 || msgWorker == -1 || msgStaff == -1) {
         perror("msgget join error");
         exit(1);
     }
@@ -221,37 +239,28 @@ void cleanup_ipc() {
     if(msgctl(msgWorker, IPC_RMID, NULL) == -1) {
         perror("cleanup msgWorker error");
     }
-    msgClient = msgCashier = msgWorker = -1;
+    if(msgctl(msgStaff, IPC_RMID, NULL) == -1){
+        perror("cleanup msgStaff error");
+    }
+    msgClient = msgCashier = msgWorker = msgStaff = -1;
 }
 
-int semlock(int sem_num){
+int semlock(int sem_num, int undo){
     struct sembuf op; //p
     op.sem_num = sem_num;
     op.sem_op = -1;
-    op.sem_flg = 0;
-    if(semop(semid, &op, 1) == -1){
-        if(errno == EINTR){
-            return -1;
-        }
-        if(errno == EIDRM || errno == EINVAL){
-            return -2;
-        } 
-        perror("semlock error");
-        exit(1);
+    if(undo == 1){
+        op.sem_flg = SEM_UNDO;
     }
-    return 0;
-}
+    else{
+        op.sem_flg = 0;
+    }
 
-int semunlock(int sem_num){
-    struct sembuf op; //v
-    op.sem_num = sem_num;
-    op.sem_op = 1;
-    op.sem_flg = 0;
-    if(semop(semid, &op, 1) == -1){
-        if(errno == EINTR){
+    while (semop(semid, &op, 1) == -1) {
+        if (errno == EINTR) {
             return -1;
         }
-        if(errno == EIDRM || errno == EINVAL){
+        if (errno == EIDRM || errno == EINVAL) {
             return -2;
         }
         perror("semunlock error");
@@ -260,37 +269,80 @@ int semunlock(int sem_num){
     return 0;
 }
 
-int sem_closeDoor(int sem_num, int groupSize){
-    struct sembuf op;
+
+int semunlock(int sem_num, int undo){
+    struct sembuf op; //v
     op.sem_num = sem_num;
-    op.sem_op = -groupSize;
-    op.sem_flg = 0;
-    if(semop(semid, &op, 1) == -1){
-        if(errno == EINTR){
-            return -1;
+    op.sem_op = 1;
+    if(undo == 1){
+        op.sem_flg = SEM_UNDO;
+    } 
+    else{
+        op.sem_flg = 0;
+    }
+    while (1) {
+        if (semop(semid, &op, 1) == 0) {
+            break;
         }
-        if(errno == EIDRM || errno == EINVAL){
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EIDRM || errno == EINVAL) {
             return -2;
         }
-        perror("semop door lock error");
+        perror("semunlock error");
         exit(1);
     }
     return 0;
 }
 
-int sem_openDoor(int sem_num, int groupSize){
+int sem_closeDoor(int sem_num, int groupSize, int undo){
+    struct sembuf op;
+    op.sem_num = sem_num;
+    op.sem_op = -groupSize;
+    if(undo == 1){
+        op.sem_flg = SEM_UNDO;
+    } 
+    else{
+        op.sem_flg = 0;
+    }
+    while (1) {
+        if (semop(semid, &op, 1) == 0) {
+            break;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EIDRM || errno == EINVAL) {
+            return -2;
+        }
+        perror("sem closeDoor error");
+        exit(1);
+    }
+    return 0;
+}
+
+int sem_openDoor(int sem_num, int groupSize, int undo){
     struct sembuf op;
     op.sem_num = sem_num;
     op.sem_op = groupSize;
-    op.sem_flg = 0;
-    if(semop(semid, &op, 1) == -1){
-        if(errno == EINTR){
-            return -1;
+    if(undo == 1){
+        op.sem_flg = SEM_UNDO;
+    } 
+    else{
+        op.sem_flg = 0;
+    }
+    while (1) {
+        if (semop(semid, &op, 1) == 0) {
+            break;
         }
-        if(errno == EIDRM || errno == EINVAL){
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EIDRM || errno == EINVAL) {
             return -2;
         }
-        perror("semop door unlock error");
+        perror("sem openDoor error");
         exit(1);
     }
     return 0;
@@ -302,16 +354,21 @@ int sem_wakeAll(int sem_num){
         return 0;
     }
     for(int i = 0; i < waiting; i++){
-        semunlock(sem_num);
+        semunlock(sem_num, 0);
     }
+
+    return 0;
 }
 
 int msgSend(int dest, msgbuf *msg){
-    if(msgsnd(dest, msg, msgSize, 0) == -1){
-        if(errno == EINTR){
-            return -1;
+    while (1) {
+        if (msgsnd(dest, msg, msgSize, 0) == 0) {
+            break;
         }
-        if(errno == EIDRM || errno == EINVAL){
+        if (errno == EINTR) {
+            continue;
+        }
+        if (errno == EIDRM || errno == EINVAL) {
             return -2;
         }
         perror("msgsnd error");
@@ -335,33 +392,27 @@ int msgReceive(int src, msgbuf *msg, long type){
     return result;
 }
 
-void logger(const char *format, ...){
-    va_list args1, args2;
-    va_start(args1, format);
-    va_copy(args2, args1);
-
-    sigset_t block_mask, old_mask;
-    sigfillset(&block_mask);
-    sigprocmask(SIG_BLOCK, &block_mask, &old_mask);
-
-    FILE *f = fopen(LOG_FILE, "a");
-    if(f != NULL){
-        int fd = fileno(f);
-        flock(fd, LOCK_EX);
-
-        vprintf(format, args1);
-        printf("\n");
-        fflush(stdout);
-
-        vfprintf(f, format, args2);
-        fprintf(f, "\n");
-        fflush(f);
-        
-        flock(fd, LOCK_UN);
-        fclose(f);
+void logger(const char *format, ...) {
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    if (len <= 0){
+        return;
     }
-    va_end(args1);
-    va_end(args2);
 
-    sigprocmask(SIG_SETMASK, &old_mask, NULL);
+    if (len < (int)sizeof(buffer) - 1) {
+        buffer[len++] = '\n';
+        buffer[len] = '\0';
+    }
+
+    write(STDOUT_FILENO, buffer, len);
+    int fd = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0666);
+    if (fd != -1) {
+        flock(fd, LOCK_EX); 
+        write(fd, buffer, len);
+        flock(fd, LOCK_UN);
+        close(fd);
+    }
 }

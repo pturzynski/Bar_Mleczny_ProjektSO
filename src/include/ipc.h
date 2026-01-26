@@ -8,13 +8,14 @@
 //semafory
 #define SEMNUMBER 4 //liczba semaforow
 #define SEM_MEMORY 0 //semafor pamieci dzielonej
-#define SEM_GENERATOR 1 //semafor dla generatora pracownikow
+#define SEM_GENERATOR 1 //semafor dla generatora
 #define SEM_DOOR 2 //drzwi do baru, ograniczone maxClients
 #define SEM_SEARCH 3 //semafor do petli szukania stolika dla klienta w client.c
 
 //mtype komunikatow
 #define MTYPE_CASHIER 1
 #define MTYPE_WORKER 2
+#define MTYPE_RESERVATION 3
 
 #define RESET   "\033[0m"
 #define CASHIER_COL "\033[34m" //niebieski
@@ -64,7 +65,9 @@ typedef struct{
 typedef struct{
     long int mtype;
     int pid; 
-    int payed; //0 - nie zaplacone, 1 - zaplacone 
+    int price;
+    int tableType; //do rezerwacji
+    int count; //do rezerwacji
 } msgbuf;
 
 key_t getKey(char id);
@@ -76,10 +79,10 @@ BarState* join_ipc();
 void detach_ipc();
 void cleanup_ipc();
 
-int semlock(int sem_num);
-int semunlock(int sem_num);
-int sem_closeDoor(int sem_num, int groupSize);
-int sem_openDoor(int sem_num, int groupSize);
+int semlock(int sem_num, int undo);
+int semunlock(int sem_num, int undo);
+int sem_closeDoor(int sem_num, int groupSize, int undo);
+int sem_openDoor(int sem_num, int groupSize, int undo);
 int sem_wakeAll(int sem_num); //budzi czekajacych na semaforze
 
 int msgSend(int dest, msgbuf *msg);
@@ -88,6 +91,7 @@ int msgReceive(int src, msgbuf *msg, long type);
 extern int msgClient;
 extern int msgCashier;
 extern int msgWorker;
+extern int msgStaff;
 extern BarState *bar;
 
 void logger(const char *format, ...);

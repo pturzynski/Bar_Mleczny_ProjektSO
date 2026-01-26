@@ -1,30 +1,91 @@
 #include "include/ipc.h"
+#include <pthread.h>
 
 volatile sig_atomic_t running = 1; 
 volatile sig_atomic_t fire = 0;
 
-void handle_signals(int sig){
-    if(sig == SIGINT || sig == SIGTERM){
+pthread_t id_generator = -1;
+pthread_t id_reaper = -1;
+pid_t pid_cashier = -1;
+pid_t pid_worker = -1;
+pid_t personel = -1;
+
+void handle_signal(int sig){
+    if(sig == SIGINT){
         running = 0;
     }
-    else if(sig == SIGQUIT){
+    if(sig == SIGTERM){
         running = 0;
         fire = 1;
     }
+    if(sig == SIGTSTP){
+        if(personel > 0) {
+            kill(-personel, SIGTSTP);
+        }
+        raise(SIGSTOP);
+    }
+    if(sig == SIGCONT){
+        if(personel > 0) {
+            kill(-personel, SIGCONT);
+        }
+    }
+}
+
+void* generatorRoutine(){
+    while(running){
+        int res = semlock(SEM_GENERATOR, 0);
+        if(res == -1){
+            if(!running){
+                break;
+            }
+            continue;
+        }
+        if(res == -2){
+            break;
+        }
+        if(!running){
+            semunlock(SEM_GENERATOR, 0);
+            break;
+        }
+        pid_t pid = fork();
+        if(pid == 0){
+            execl("bin/client", "Klient", NULL);
+            perror("execl client failed");
+            _exit(1);
+        }
+        else if(pid == -1){
+            semunlock(SEM_GENERATOR, 0);
+            perror("generator fork error");
+        }
+    }
+    return NULL;
+}
+
+void* reaperRoutine(){
+    while(running){
+        pid_t deadChild;
+        while((deadChild = waitpid(-1, NULL, WNOHANG)) > 0){
+            if(deadChild != pid_cashier && deadChild != pid_worker){
+                semunlock(SEM_GENERATOR, 0);
+            }
+        }
+    }
+    return NULL;
 }
 
 int main(){
     struct sigaction sa;
-    sa.sa_handler = handle_signals;
+    sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGQUIT, &sa, NULL);
+    sigaction(SIGTSTP, &sa, NULL);
+    sigaction(SIGCONT, &sa, NULL);
 
-    FILE *f = fopen(LOG_FILE, "w");
-    if (f != NULL) {
-        fclose(f);
+    int fd = open(LOG_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd != -1){
+        close(fd);
     }
 
     int x1, x2, x3, x4;
@@ -39,6 +100,7 @@ int main(){
         }
         if (x1 <= 0 || x2 <= 0 || x3 <= 0 || x4 <= 0) {
             printf("Błąd: Liczba wszystkich typów stolików musi być większa od 0!\n");
+            while (getchar() != '\n');
             continue;
         }
         break;
@@ -50,23 +112,11 @@ int main(){
 
     logger("[MAIN] Bar uruchomiony");
 
-    pid_t pid_generator = fork();
-    if (pid_generator == 0){
-        setpgid(getpid(), getpid());
-        execl("bin/generator", "Generator", NULL);
-        perror("exec generator error\n");
-        detach_ipc();
-        _exit(1);
-    }
-    if (pid_generator == -1){
-        perror("fork generator error\n");
-        detach_ipc();
-        cleanup_ipc();
-        exit(1);
-    }
-
-    pid_t pid_cashier = fork();
+    personel = 0;
+    
+    pid_cashier = fork();
     if (pid_cashier == 0){
+        setpgid(0, 0);
         execl("bin/cashier", "Kasjer", NULL);
         perror("exec cashier error\n");
         detach_ipc();
@@ -75,14 +125,15 @@ int main(){
     if (pid_cashier == -1){
         perror("fork cashier error\n");
         detach_ipc();
-        kill(-pid_generator, SIGTERM);
-        waitpid(pid_generator, NULL, 0);
         cleanup_ipc();
         exit(1);
     }
     
-    pid_t pid_worker = fork();
+    personel = pid_cashier;
+
+    pid_worker = fork();
     if (pid_worker == 0){
+        setpgid(0, personel);
         execl("bin/worker", "Pracownik", NULL);
         perror("exec worker error\n");
         detach_ipc();
@@ -91,43 +142,54 @@ int main(){
     if (pid_worker == -1){
         perror("fork worker error\n");
         detach_ipc();
-        kill(-pid_generator, SIGTERM);
         kill(pid_cashier, SIGTERM);
-        waitpid(pid_generator, NULL, 0);
         waitpid(pid_cashier, NULL, 0);
         cleanup_ipc();
         exit(1);
     }
 
-    while(running) {
-        pause();
-    }
+    pthread_create(&id_reaper, NULL, reaperRoutine, NULL);
+    pthread_create(&id_generator, NULL, generatorRoutine, NULL);
 
-    if(fire == 1){
-        //zabijamy cala grupe generatora 
-        kill(-pid_generator, SIGQUIT);
-        waitpid(pid_generator, NULL, 0);
-        //gdy klienci wyszli z baru to wtedy pracownicy baru
-
-        kill(pid_worker, SIGQUIT);
-        kill(pid_cashier, SIGQUIT);
-        waitpid(pid_worker, NULL, 0);
-        waitpid(pid_cashier, NULL, 0);
-    }
-    else{
-        kill(-pid_generator, SIGTERM);
-        waitpid(pid_generator, NULL, 0);
-        
-        kill(pid_worker, SIGTERM);
-        kill(pid_cashier, SIGTERM);
-        waitpid(pid_worker, NULL, 0);
-        waitpid(pid_cashier, NULL, 0);
+    while(running){
+        //usleep(10000);
     }
     
-    while(wait(NULL) > 0);
-    logger("[MAIN] Koniec symulacji");
+    //semunlock(SEM_GENERATOR, 0);
+    pthread_join(id_generator, NULL);
+    pthread_join(id_reaper, NULL);
 
+    if(fire == 1){
+        logger("[MAIN] POZAR! Ewakuuje klientow");
+        signal(SIGTERM, SIG_IGN);
+        if(personel > 0){
+            kill(-personel, SIGTERM);
+        }
+        kill(0, SIGTERM);
+        logger("[MAIN] POZAR! Ewakuuje klientow");
+        while(waitpid(0, NULL, 0) > 0){}
+        logger("[MAIN] Klienci ewakuowani");
+        if(personel > 0){
+            kill(-personel, SIGTERM);
+        }
+        waitpid(pid_cashier, NULL, 0);
+        waitpid(pid_worker, NULL, 0);
+    }
+    else{
+        signal(SIGINT, SIG_IGN);
+        kill(0, SIGINT);
+        while(waitpid(0, NULL, 0) > 0){}
+            
+        logger("[MAIN] Zamykam kase i kuchnie");
+        if(personel > 0){
+            kill(-personel, SIGINT);
+        }
+        waitpid(pid_cashier, NULL, 0);
+        waitpid(pid_worker, NULL, 0);
+    }
+
+    logger("[MAIN] Koniec symulacji");
     detach_ipc();
     cleanup_ipc();
     return 0;
-}
+}   

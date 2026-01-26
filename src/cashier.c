@@ -1,29 +1,31 @@
 #include "include/ipc.h"
 
-void handle_signals(int sig){
-    if(sig == SIGQUIT){
-        logger(CASHIER_COL "[KASJER] POZAR ! EWAKUACJA !" RESET);
-        detach_ipc();
-        exit(0);
-    }
+int income = 0;
+
+void handle_signal(int sig){
     if(sig == SIGINT){
-        logger(CASHIER_COL "[KASJER] Zamykam kase" RESET);
+        logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);    
+        _exit(0);
+    }
+    if(sig == SIGTERM){
+        logger(CASHIER_COL "[KASJER] Klienci ewakuowani, zamykam kase i uciekam" RESET);
+        logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);
+        _exit(0);
     }
 }
 
 int main(){
-    BarState *bar = join_ipc();
-    msgbuf msg;
-
     struct sigaction sa;
-    sa.sa_handler = handle_signals;
+    sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
-    sigaction(SIGQUIT, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
-    
-    int running = 1;
+    sigaction(SIGTERM, &sa, NULL);
+
+    bar = join_ipc();
+    msgbuf msg;
     logger(CASHIER_COL "[KASJER] Kasa zosatała otwarta" RESET);
+    int running = 1;
     while(running){
         int res = msgReceive(msgCashier, &msg, MTYPE_CASHIER);
         if(res == -1){
@@ -32,13 +34,12 @@ int main(){
         if(res == -2){
             break;
         }
-        logger(CASHIER_COL "[KASJER] Klient %d zaplacil za zamowienie" RESET, msg.pid);
+        logger(CASHIER_COL "[KASJER] Klient %d zaplacil %d za zamowienie" RESET, msg.pid, msg.price);
+        income += msg.price;
         msg.mtype = msg.pid;
-        msg.payed = 1;
         msgSend(msgClient, &msg);
     }
-
-    printf(CASHIER_COL "[KASJER] Kasa zamknieta" RESET);
+    logger(CASHIER_COL "[KASJER] Kasa zamknieta" RESET);
     detach_ipc();
     return 0;
 }
