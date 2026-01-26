@@ -36,7 +36,7 @@ void* clientEatTime(void* arg){
     unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)pthread_self();
     int eatTime = (rand_r(&seed) % 5) + 2;
     logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Jem (%d sek)!" RESET, getpid(), id, eatTime);
-    //sleep(eatTime);
+    sleep(eatTime);
 
     return NULL;
 }

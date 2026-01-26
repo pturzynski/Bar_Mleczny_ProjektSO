@@ -2,7 +2,7 @@
 
 #define RED "\033[0;31m"
 
-volatile sig_atomic_t success = 0;
+volatile sig_atomic_t success = -1;
 
 void print_menu(){
     printf("----MENU----\n");
@@ -10,6 +10,14 @@ void print_menu(){
     printf("2. Rezerwacja stolikow\n");
     printf("3. POZAR / opuszczanie baru\n");
     printf("4. Wyjscie\n");
+}
+
+void checkIpc(int res){
+    if(res == -2){
+        printf("Bar zostal zamkniety. IPC nie istnieja.\n");
+        detach_ipc();
+        exit(0);
+    }
 }
 
 void handle_signals(int sig){
@@ -24,17 +32,27 @@ void handle_signals(int sig){
 int main(){
     BarState *bar = join_ipc();
     msgbuf msg;
-
-    semlock(SEM_MEMORY, 1);
+    int res;
+    
+    res = semlock(SEM_MEMORY, 1);
+    checkIpc(res);
+    
     pid_t workerPid = bar->workerPid;
     bar->managerPid = getpid();
     int oldX3 = bar->x3;
-    semunlock(SEM_MEMORY, 1);
+    
+    res = semunlock(SEM_MEMORY, 1);
+    checkIpc(res);
+    
+    sigset_t blockMask, oldMask;
+    sigemptyset(&blockMask);
+    sigaddset(&blockMask, SIGUSR1);
+    sigaddset(&blockMask, SIGUSR2);
 
     struct sigaction sa;
     sa.sa_handler = handle_signals;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
+    sa.sa_flags = 0;
     sigaction(SIGUSR1, &sa, NULL);
     sigaction(SIGUSR2, &sa, NULL);
 
@@ -51,13 +69,32 @@ int main(){
         switch(option){
             case 1:
                 if(doubleX3 == 0){
-                    kill(workerPid, SIGUSR1);
-                    pause();
+                    sigprocmask(SIG_BLOCK, &blockMask, &oldMask);
+                    success = -1;
+
+                    if(kill(workerPid, SIGUSR1) == -1){
+                        if(errno == ESRCH){
+                            printf("Taki proces nie istnieje\n");
+                            detach_ipc();
+                            exit(0);
+                        }
+                    }
+
+                    while(success == -1){
+                        sigsuspend(&oldMask);
+                    }
+
+                    sigprocmask(SIG_SETMASK, &oldMask, NULL);
+
                     if(success == 1){
                         doubleX3 = 1;
-                        semlock(SEM_MEMORY, 1);
+                        res = semlock(SEM_MEMORY, 1);
+                        checkIpc(res);
+
                         printf(RED "Podwojono stoliki 3 osobowe: bylo: %d teraz = %d allTables = %d\n" RESET, oldX3, bar->x3, bar->allTables);
-                        semunlock(SEM_MEMORY, 1);
+
+                        res = semunlock(SEM_MEMORY, 1);
+                        checkIpc(res);
                     }
                     else{
                         printf(RED "Nie udalo sie podwoic liczby stolikow 3 osobowych\n" RESET);
@@ -73,7 +110,10 @@ int main(){
                 x1 = x2 = x3 = x4 = 0;
                 int resx1, resx2, resx3, resx4;
                 resx1 = resx2 = resx3 = resx4 = 0;
-                semlock(SEM_MEMORY, 1);
+
+                res = semlock(SEM_MEMORY, 1);
+                checkIpc(res);
+
                 for(int i = 0; i < bar->allTables; i++){
                     if(bar->tables[i].capacity == 1){
                         if(bar->tables[i].isReserved == 0){
@@ -108,7 +148,9 @@ int main(){
                         }
                     }
                 }
-                semunlock(SEM_MEMORY, 1);
+                
+                res = semunlock(SEM_MEMORY, 1);
+                checkIpc(res);
 
                 printf("Stan stolikow (zarezerwowane / wolne)\n");
                 printf("1os: %d / %d \n", resx1, x1);
@@ -116,6 +158,7 @@ int main(){
                 printf("3os: %d / %d \n", resx3, x3);
                 printf("4os: %d / %d \n", resx4, x4);
                 printf("Podaj typ stolika do zarezerwowania (1-4)\n");
+
                 int type, count;
                 while(1){
                     if(scanf("%d", &type) != 1){
@@ -138,7 +181,7 @@ int main(){
                         continue;
                     }
                     if(count < 0){
-                        printf("Liczba musi być dodatnia\n");
+                        printf("Liczba musi byc dodatnia\n");
                         continue;
                     }
 
@@ -171,9 +214,25 @@ int main(){
                 msg.count = count;
                 msg.mtype = MTYPE_RESERVATION;
 
-                msgSend(msgStaff, &msg);
-                kill(bar->workerPid, SIGUSR2);
-                pause();
+                res = msgSend(msgStaff, &msg);
+                checkIpc(res);
+
+                sigprocmask(SIG_BLOCK, &blockMask, &oldMask);
+                success = -1;
+
+                if(kill(workerPid, SIGUSR2) == -1){
+                    if(errno == ESRCH){
+                        printf("Taki proces nie istnieje\n");
+                        detach_ipc();
+                        exit(0);
+                    }
+                }
+                while(success == -1){
+                    sigsuspend(&oldMask);
+                }
+
+                sigprocmask(SIG_SETMASK, &oldMask, NULL);
+
                 if(success == 1){
                     printf(RED "Zarezerwowano %d stolikow %d osobowych\n" RESET, count, type);
                 }
@@ -182,8 +241,14 @@ int main(){
                 }
                 break;
             case 3:
+                if(kill(-bar->mainPid, SIGTERM) == -1){
+                    if(errno == ESRCH){
+                        printf("Taki proces nie istnieje\n");
+                        detach_ipc();
+                        exit(0);
+                    }
+                }
                 printf(RED "POZAR!!!\n" RESET);
-                kill(-bar->mainPid, SIGTERM);
                 return 0;
             case 4:
                 detach_ipc();

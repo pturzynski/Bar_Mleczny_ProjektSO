@@ -99,12 +99,12 @@ int main(){
         printf("PRZYKLAD: 1 2 3 4\n");
         
         if (scanf("%d %d %d %d", &x1, &x2, &x3, &x4) != 4) {
-            printf("Błąd: Wprowadź cztery liczby całkowite!\n");
+            printf("Blad: Wprowadz cztery liczby\n");
             while (getchar() != '\n');
             continue;
         }
         if (x1 <= 0 || x2 <= 0 || x3 <= 0 || x4 <= 0) {
-            printf("Błąd: Liczba wszystkich typów stolików musi być większa od 0!\n");
+            printf("Blad: Liczby musza byc dodatnie\n");
             while (getchar() != '\n');
             continue;
         }

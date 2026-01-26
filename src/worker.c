@@ -44,37 +44,51 @@ int main(){
     logger(WORKER_COL "[PRACOWNIK] Rozpoczynam prace!" RESET);
     int running = 1;
     while(running){
-        if(doubleX3 == 1 && done == 0){
-            semlock(SEM_MEMORY, 1);
-            int newTables = bar->allTables + bar->x3;
-            if(newTables > bar->maxTables){
-                logger(WORKER_COL "[PRACOWNIK] Nie udalo sie podwoic stolikow x3" RESET);
-                semunlock(SEM_MEMORY, 1);
-                if(bar->managerPid > 0){
-                    kill(bar->managerPid, SIGUSR2);
+        if(doubleX3 == 1){
+            if(done == 0){
+                semlock(SEM_MEMORY, 1);
+
+                int newTables = bar->allTables + bar->x3;
+                if(newTables > bar->maxTables){
+                    doubleX3 = 0;
+                    logger(WORKER_COL "[PRACOWNIK] Nie udalo sie podwoic stolikow x3" RESET);
+                    semunlock(SEM_MEMORY, 1);
+                    if(bar->managerPid > 0){
+                        kill(bar->managerPid, SIGUSR2);
+                    }
+                }
+                else{
+                    int oldX3 = bar->x3;
+                    int ind = bar->allTables;
+                    for(int i = 0; i < bar->x3; i++){
+                        bar->tables[ind].id = ind;
+                        bar->tables[ind].capacity = 3;
+                        bar->tables[ind].whoSits = 0;
+                        bar->tables[ind].freeSlots = 3;
+                        bar->tables[ind].isReserved = 0;
+                        ind++;
+                    }
+                    bar->maxClients += 3 * oldX3;
+                    bar->x3 += oldX3;
+                    bar->allTables = newTables;
+                    sem_openDoor(SEM_DOOR, 3 * oldX3, 0);
+
+                    if(bar->managerPid > 0){
+                        kill(bar->managerPid, SIGUSR1);
+                    }
+                    
+                    semunlock(SEM_MEMORY, 1);
+                    done = 1;
+                    logger(WORKER_COL "[PRACOWNIK] Podwojono stoliki 3 osobowe: bylo: %d teraz = %d allTables = %d" RESET, oldX3, bar->x3, bar->allTables);
+                    doubleX3 = 0;
                 }
             }
             else{
-                int oldX3 = bar->x3;
-                int ind = bar->allTables;
-                for(int i = 0; i < bar->x3; i++){
-                    bar->tables[ind].id = ind;
-                    bar->tables[ind].capacity = 3;
-                    bar->tables[ind].whoSits = 0;
-                    bar->tables[ind].freeSlots = 3;
-                    bar->tables[ind].isReserved = 0;
-                    ind++;
-                }
-                bar->maxClients += 3 * oldX3;
-                bar->x3 += oldX3;
-                bar->allTables = newTables;
-                sem_openDoor(SEM_DOOR, 3 * oldX3, 0);
                 if(bar->managerPid > 0){
-                    kill(bar->managerPid, SIGUSR1);
+                    kill(bar->managerPid, SIGUSR2);
+                    logger(WORKER_COL "[PRACOWNIK] Nie udalo sie podwoic stolikow x3. Juz raz to zrobilem" RESET);
                 }
-                semunlock(SEM_MEMORY, 1);
-                done = 1;
-                logger(WORKER_COL "[PRACOWNIK] Podwojono stoliki 3 osobowe: bylo: %d teraz = %d allTables = %d" RESET, oldX3, bar->x3, bar->allTables);
+                doubleX3 = 0;
             }
         }
         else if(reservation == 1){
@@ -99,7 +113,7 @@ int main(){
 
             if(available >= msg.count){
                 int reserved = 0;
-                for(int i = 0; i < bar->maxTables && reserved < msg.count; i++){
+                for(int i = 0; i < bar->allTables && reserved < msg.count; i++){
                     if(msg.tableType == bar->tables[i].capacity && bar->tables[i].isReserved == 0){
                         bar->tables[i].isReserved = 1;
                         reserved++;
@@ -107,7 +121,7 @@ int main(){
                 }
                 
                 semunlock(SEM_MEMORY, 1);
-                logger(WORKER_COL "[PRACOWNIK] Zarezerwowalem %d stolikow %d osobwych" RESET, reserved, msg.tableType);
+                logger(WORKER_COL "[PRACOWNIK] Zarezerwowalem %d stolikow %d osobowych" RESET, reserved, msg.tableType);
                 kill(bar->managerPid, SIGUSR1);
             }
             else{

@@ -75,6 +75,7 @@ typedef struct{
     int price;
     int tableType; //do rezerwacji
     int count; //do rezerwacji
+    int success; //potwierdzenie dla menadzera jak zakonczyla sie operacja
 } msgbuf;
 
 key_t getKey(char id);
