@@ -406,10 +406,16 @@ void loggerClose(){
     }
 }
 
+/*
+    Funkcja logująca
+    Funkcja formatuje komunikat, wypisuje go na standardowe wyjście (z kolorami) oraz zapisuje do pliku logów (po usunięciu sekwencji ANSI). 
+    Wykorzystuje flock() do zapewnienia atomowości zapisu w środowisku wieloprocesowym.
+*/
 void logger(const char *format, ...) {
     char buffer[4096];
     va_list args;
 
+    //Formatowanie komunikatu do bufora lokalnego
     va_start(args, format);
     int len = vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
@@ -418,10 +424,12 @@ void logger(const char *format, ...) {
         return;
     }
 
+    //Zapewnienie bezpieczeństwa bufora (limit 4096 znaków)
     if(len >= (int)sizeof(buffer)){
         len = sizeof(buffer) - 1;
     }
     
+    //dodawanie znaku nowej linii, jeśli go brakuje
     if(len > 0 && buffer[len-1] != '\n') {
         if(len < (int)sizeof(buffer) - 1) {
             buffer[len++] = '\n';
@@ -432,14 +440,17 @@ void logger(const char *format, ...) {
     }
     buffer[len] = '\0';
 
+    //Wypisanie na terminal z kolorami
     write(STDOUT_FILENO, buffer, len);
 
+    //Obsługa zapisu do pliku jesli jest otwarty
     if(loggerFile != -1){
         char clean_buffer[4096];
         char *src = buffer;
         char *dst = clean_buffer;
         char *end = buffer + len; 
-        
+
+        //Usuwa sekwencje zaczynające się od '\033' a kończące na 'm'
         while(src < end) {
             if(*src == '\033') {
                 while(src < end && *src != 'm') {
@@ -454,6 +465,7 @@ void logger(const char *format, ...) {
         
         int clean_len = dst - clean_buffer;
         
+        //Synchronizacja zapisu do pliku LOCK_EX gwarantuje, że tylko jeden proces pisze w danej chwili
         flock(loggerFile, LOCK_EX); 
         write(loggerFile, clean_buffer, clean_len);
         flock(loggerFile, LOCK_UN);
