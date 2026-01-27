@@ -127,7 +127,7 @@ int main(){
     int x1, x2, x3, x4;
     while (1) {
         printf("Podaj liczbe stolikow kolejno: 1-os, 2-os, 3-os, 4-os (oddziel spacja)\n");
-        printf("Liczba stolikow w przedziale [0 ... 10]\n");
+        printf("Liczba stolikow w przedziale [1 ... 10]\n");
         printf("PRZYKLAD: 1 2 3 4\n");
         
         if (scanf("%d %d %d %d", &x1, &x2, &x3, &x4) != 4){
@@ -135,15 +135,10 @@ int main(){
             while (getchar() != '\n');
             continue;
         }
-        if (x1 < 0 || x1 > 10 || x2 < 0 || x2 > 10 || x3 < 0 || x3 > 10 || x4 < 0 || x4 > 10){
-            printf("Blad: Liczby musza byc z przedzial [0 ... 10]\n");
+        if (x1 <= 0 || x1 > 10 || x2 <= 0 || x2 > 10 || x3 <= 0 || x3 > 10 || x4 <= 0 || x4 > 10){
+            printf("Blad: Liczby musza byc z przedzial [1 ... 10]\n");
             while (getchar() != '\n');
             continue;
-        }
-        if(x1 + x2 + x3 + x4 == 0){
-            printf("Blad: Bar nie moze istniec bez stolikow\n");
-            while (getchar() != '\n');
-            continue;   
         }
         break;
     }
