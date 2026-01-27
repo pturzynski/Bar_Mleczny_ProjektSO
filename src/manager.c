@@ -78,6 +78,7 @@ int main(){
                             detach_ipc();
                             exit(0);
                         }
+                        perror("kill SIGUSR1 failed");
                     }
 
                     while(success == -1){
@@ -226,6 +227,7 @@ int main(){
                         detach_ipc();
                         exit(0);
                     }
+                    perror("kill SIGUSR2 failed");
                 }
                 while(success == -1){
                     sigsuspend(&oldMask);
@@ -247,6 +249,7 @@ int main(){
                         detach_ipc();
                         exit(0);
                     }
+                    perror("kill main failed");
                 }
                 printf(RED "POZAR!!!\n" RESET);
                 return 0;

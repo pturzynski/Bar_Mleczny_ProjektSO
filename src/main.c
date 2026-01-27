@@ -153,8 +153,41 @@ int main(){
         exit(1);
     }
 
-    pthread_create(&id_reaper, NULL, reaperRoutine, NULL);
-    pthread_create(&id_generator, NULL, generatorRoutine, NULL);
+    int res = pthread_create(&id_reaper, NULL, reaperRoutine, NULL);
+    if(res != 0){
+        errno = res;
+        perror("pthread reaper create main error");
+        if(pid_cashier > 0){
+            kill(pid_cashier, SIGTERM);
+            waitpid(pid_cashier, NULL, 0);
+        }
+        if(pid_worker > 0){
+            kill(pid_worker, SIGTERM);
+            waitpid(pid_worker, NULL, 0);
+        }
+        loggerClose();
+        detach_ipc();
+        cleanup_ipc();
+        exit(1);
+    }
+    
+    res = pthread_create(&id_generator, NULL, generatorRoutine, NULL);
+    if(res != 0){
+        errno = res;
+        perror("pthread generator create main error");
+        if(pid_cashier > 0){
+            kill(pid_cashier, SIGTERM);
+            waitpid(pid_cashier, NULL, 0);
+        }
+        if(pid_worker > 0){
+            kill(pid_worker, SIGTERM);
+            waitpid(pid_worker, NULL, 0);
+        }
+        loggerClose();
+        detach_ipc();
+        cleanup_ipc();
+        exit(1);
+    }
 
     while(running){
         //usleep(10000);

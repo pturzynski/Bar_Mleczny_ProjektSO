@@ -180,7 +180,12 @@ BarState* join_ipc(){
 
     shmid = shmget(key_shmem, 0, 0600);
     if(shmid == -1){
-        perror("shmget join error");
+        if(errno == ENOENT){
+            fprintf(stderr, "Bar zamkniety, ./main nie jest uruchomiony\n");
+        }
+        else{
+            perror("shmget join error");
+        }
         exit(1);
     }
 
@@ -402,7 +407,7 @@ void loggerClose(){
 }
 
 void logger(const char *format, ...) {
-    char buffer[1024];
+    char buffer[4096];
     va_list args;
 
     va_start(args, format);
@@ -413,32 +418,44 @@ void logger(const char *format, ...) {
         return;
     }
 
-    if(len < (int)sizeof(buffer) - 1){
-        buffer[len++] = '\n';
-        buffer[len] = '\0';
+    if(len >= (int)sizeof(buffer)){
+        len = sizeof(buffer) - 1;
     }
+    
+    if(len > 0 && buffer[len-1] != '\n') {
+        if(len < (int)sizeof(buffer) - 1) {
+            buffer[len++] = '\n';
+        } 
+        else {
+            buffer[len-1] = '\n';
+        }
+    }
+    buffer[len] = '\0';
 
     write(STDOUT_FILENO, buffer, len);
 
     if(loggerFile != -1){
+        char clean_buffer[4096];
         char *src = buffer;
-        char *dst = buffer;
-        while(*src){
-            if(*src == '\033'){
-                while(*src && *src != 'm'){
+        char *dst = clean_buffer;
+        char *end = buffer + len; 
+        
+        while(src < end) {
+            if(*src == '\033') {
+                while(src < end && *src != 'm') {
                     src++;
                 }
-                if(*src) src++;
+                if(src < end) src++;
             } 
-            else{
+            else {
                 *dst++ = *src++;
             }
         }
-        *dst = '\0';
-
-        int clean_len = dst - buffer;
+        
+        int clean_len = dst - clean_buffer;
+        
         flock(loggerFile, LOCK_EX); 
-        write(loggerFile, buffer, clean_len);
+        write(loggerFile, clean_buffer, clean_len);
         flock(loggerFile, LOCK_UN);
     }
 }

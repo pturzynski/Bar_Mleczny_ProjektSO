@@ -16,8 +16,8 @@ void* clientRoutine(void* arg){
         price = 8;
     }
     else if(choice == 2){
-        logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Zamawiam danie glowne (28zl)!" RESET, getpid(), id);
-        price = 26;
+        logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Zamawiam danie glowne (27zl)!" RESET, getpid(), id);
+        price = 27;
     }
     else if(choice == 3){
         logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Zamawiam zestaw, zupa + danie glowne (30zl)!" RESET, getpid(), id);
@@ -36,7 +36,7 @@ void* clientEatTime(void* arg){
     unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)pthread_self();
     int eatTime = (rand_r(&seed) % 5) + 2;
     logger(CLIENT_COL "[KLIENT %d | Osoba %ld] Jem (%d sek)!" RESET, getpid(), id, eatTime);
-    sleep(eatTime);
+    //sleep(eatTime);
 
     return NULL;
 }
@@ -47,7 +47,6 @@ void handle_signal(int sig) {
         _exit(0);
     }
     if(sig == SIGTERM){
-        //logger(CLIENT_COL "[KLIENT %d] POZAR!!!" RESET, getpid());
         loggerClose();
         _exit(0);
     }
@@ -73,7 +72,7 @@ int main(){
     sem_closeDoor(SEM_DOOR, groupSize, 1);
     logger(CLIENT_COL "[KLIENT %d | %d osob] Wchodzimy do baru!" RESET, getpid(), groupSize);
     //nie zamawiamy i wychodzimy
-    if(ifOrder <= 5){
+    if(ifOrder < 5){
         logger(CLIENT_COL "[KLIENT %d | %d osob] Nie zamawiamy nic. Wychodzimy!" RESET, getpid(), groupSize);
         sem_openDoor(SEM_DOOR, groupSize, 1);
         loggerClose();
@@ -98,7 +97,7 @@ int main(){
         return 0;
     }
 
-    //teraz mozemy byc klientami w barze, ktorzy moga zamowic wiec wiekszamy bar clients
+    //teraz mozemy byc klientami w barze, ktorzy moga zamowic wiec zwiekszamy bar clients
     semlock(SEM_MEMORY, 1);
     bar->clients += groupSize;
     semunlock(SEM_MEMORY, 1);
@@ -106,6 +105,7 @@ int main(){
     logger(CLIENT_COL "[KLIENT %d | %d osob] Szukamy stolika %d osobowego" RESET, getpid(), groupSize, groupSize);
     //szukanie stolika
 
+    int attempts = 0;
     int foundTable = -1;
     while(foundTable == -1){
         semlock(SEM_MEMORY, 1);
@@ -150,6 +150,18 @@ int main(){
 
         //jesli nie znajde to blokuje sie na semaforze
         if(foundTable == -1){
+            attempts++;
+            if(attempts >= 10){
+                semlock(SEM_MEMORY, 1);
+                bar->clients -= groupSize;
+                semunlock(SEM_MEMORY, 1);
+                logger(CLIENT_COL "[KLIENT %d | %d osob] Zbyt dlugo szukamy stolika. Wychodzimy!" RESET, getpid(), groupSize);
+                sem_wakeOne(SEM_SEARCH);
+                sem_openDoor(SEM_DOOR, groupSize, 1);
+                loggerClose();
+                detach_ipc();
+                exit(0);
+            }
             semlock(SEM_SEARCH, 0);
         }
     }//while
@@ -157,7 +169,14 @@ int main(){
     pthread_t members[2];
     if(groupSize > 1){
         for(int i = 0; i < groupSize - 1; i++){
-            pthread_create(&members[i], NULL, clientRoutine, (void*)(intptr_t)(i + 2));
+            int res = pthread_create(&members[i], NULL, clientRoutine, (void*)(intptr_t)(i + 2));
+            if(res != 0){
+                errno = res;
+                perror("pthread create client error");
+                loggerClose();
+                detach_ipc();
+                exit(1);
+            }
         }
     }
     clientRoutine((void*)(intptr_t)1);
@@ -187,7 +206,14 @@ int main(){
 
     if(groupSize > 1){
         for(int i = 0; i < groupSize - 1; i++){
-            pthread_create(&members[i], NULL, clientEatTime, (void*)(intptr_t)(i + 2));
+            int res = pthread_create(&members[i], NULL, clientEatTime, (void*)(intptr_t)(i + 2));
+            if(res != 0){
+                errno = res;
+                perror("pthread create client error");
+                loggerClose();
+                detach_ipc();
+                exit(1);
+            }
         }
     }
     clientEatTime((void*)(intptr_t)1);
