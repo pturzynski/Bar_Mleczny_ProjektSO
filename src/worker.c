@@ -54,7 +54,9 @@ int main(){
                     logger(WORKER_COL "[PRACOWNIK] Nie udalo sie podwoic stolikow x3" RESET);
                     semunlock(SEM_MEMORY, 1);
                     if(bar->managerPid > 0){
-                        kill(bar->managerPid, SIGUSR2);
+                        if(kill(bar->managerPid, SIGUSR2) == -1){
+                            perror("WORKER kill SIGUSR2 failed");
+                        }
                     }
                 }
                 else{
@@ -74,7 +76,9 @@ int main(){
                     sem_openDoor(SEM_DOOR, 3 * oldX3, 0);
 
                     if(bar->managerPid > 0){
-                        kill(bar->managerPid, SIGUSR1);
+                        if(kill(bar->managerPid, SIGUSR1) == -1){
+                            perror("WORKER kill SIGUSR1 failed");
+                        }
                     }
                     
                     semunlock(SEM_MEMORY, 1);
@@ -85,7 +89,9 @@ int main(){
             }
             else{
                 if(bar->managerPid > 0){
-                    kill(bar->managerPid, SIGUSR2);
+                    if(kill(bar->managerPid, SIGUSR2) == -1){
+                        perror("WORKER kill SIGUSR2 failed");
+                    }
                     logger(WORKER_COL "[PRACOWNIK] Nie udalo sie podwoic stolikow x3. Juz raz to zrobilem" RESET);
                 }
                 doubleX3 = 0;
@@ -122,12 +128,20 @@ int main(){
                 
                 semunlock(SEM_MEMORY, 1);
                 logger(WORKER_COL "[PRACOWNIK] Zarezerwowalem %d stolikow %d osobowych" RESET, reserved, msg.tableType);
-                kill(bar->managerPid, SIGUSR1);
+                if(bar->managerPid > 0){
+                    if(kill(bar->managerPid, SIGUSR1) == -1){
+                        perror("WORKER kill SIGUSR1 error");
+                    }
+                }
             }
             else{
                 semunlock(SEM_MEMORY, 1);
                 logger(WORKER_COL "[PRACOWNIK] Nie udalo sie zarezerwowac stolikow" RESET);
-                kill(bar->managerPid, SIGUSR2);
+                if(bar->managerPid > 0){
+                    if(kill(bar->managerPid, SIGUSR2) == -1){
+                        perror("WORKER kill SIGUSR2 failed");
+                    }
+                }
             }
             reservation = 0;
         }

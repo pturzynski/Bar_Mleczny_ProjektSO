@@ -3,7 +3,6 @@
 
 volatile sig_atomic_t running = 1; 
 volatile sig_atomic_t fire = 0;
-volatile int counter = 0;
 
 pthread_t id_generator = -1;
 pthread_t id_reaper = -1;
@@ -52,7 +51,6 @@ void* generatorRoutine(){
         if(pid == 0){
             execl("bin/client", "Klient", NULL);
             perror("execl client failed");
-            semunlock(SEM_GENERATOR, 0);
             _exit(1);
         }
         else if(pid == -1){
@@ -60,7 +58,6 @@ void* generatorRoutine(){
             perror("generator fork error");
         }
         else{
-            counter++;
         }
     }
     return NULL;
@@ -96,15 +93,16 @@ int main(){
     int x1, x2, x3, x4;
     while (1) {
         printf("Podaj liczbe stolikow kolejno: 1-os, 2-os, 3-os, 4-os (oddziel spacja)\n");
+        printf("Liczba stolikow w przedziale [1 ... 10]\n");
         printf("PRZYKLAD: 1 2 3 4\n");
         
-        if (scanf("%d %d %d %d", &x1, &x2, &x3, &x4) != 4) {
+        if (scanf("%d %d %d %d", &x1, &x2, &x3, &x4) != 4){
             printf("Blad: Wprowadz cztery liczby\n");
             while (getchar() != '\n');
             continue;
         }
-        if (x1 <= 0 || x2 <= 0 || x3 <= 0 || x4 <= 0) {
-            printf("Blad: Liczby musza byc dodatnie\n");
+        if (x1 <= 0 || x1 > 10 || x2 <= 0 || x2 > 10 || x3 <= 0 || x3 > 10 || x4 <= 0 || x4 > 10){
+            printf("Blad: Liczby musza byc z przedzial [1 ... 10]\n");
             while (getchar() != '\n');
             continue;
         }
@@ -193,8 +191,12 @@ int main(){
         //usleep(10000);
     }
     
-    pthread_join(id_generator, NULL);
-    pthread_join(id_reaper, NULL);
+    if(pthread_join(id_generator, NULL) != 0){
+        perror("pthread join generator failed");
+    }
+    if(pthread_join(id_reaper, NULL) != 0){
+        perror("pthread join reaper failed");
+    }
 
     if(fire == 1){
         logger("[MAIN] POZAR! Ewakuuje klientow");
@@ -221,7 +223,6 @@ int main(){
         waitpid(pid_worker, NULL, 0);
     }
 
-    logger("Liczba stworzonych klientow: %d", counter);
     logger("[MAIN] Koniec symulacji");
     loggerClose();
 

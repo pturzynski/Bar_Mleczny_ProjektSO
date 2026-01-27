@@ -27,10 +27,6 @@
 
 #define LOG_FILE "bar_log.txt" //plik logow
 
-#define EXIT_SUCCESS 10 //klient zamkniety poprawnie (przeszedl caly bar)
-#define EXIT_RESERVED 11 //klient wychodzi bo wszystkie stoliki sa zarezerwowane
-#define EXIT_NO_ORDER 12 //klient wychodzi bez zamawiania (ifOrder <=5)
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
