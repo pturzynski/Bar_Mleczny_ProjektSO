@@ -4,6 +4,7 @@
 
 volatile sig_atomic_t success = -1;
 
+//printowanie opcji mozliwych do wyboru
 void print_menu(){
     printf("----MENU----\n");
     printf("1. PODWOJENIE ILOSCI STOLIKOW X3 (mozliwe tylko raz)\n");
@@ -12,6 +13,10 @@ void print_menu(){
     printf("4. Wyjscie\n");
 }
 
+/*
+    Funkcja pomocnicza, sprawdzajaca czy nasze IPC jeszcze istnienja
+    Mozliwa sytuacja gdzie wylaczymy bar (main) a ciagle pracuje w menadzerze
+*/
 void checkIpc(int res){
     if(res == -2){
         printf("Bar zostal zamkniety. IPC nie istnieja.\n");
@@ -159,6 +164,7 @@ int main(){
                 printf("3os: %d / %d \n", resx3, x3);
                 printf("4os: %d / %d \n", resx4, x4);
                 printf("Podaj typ stolika do zarezerwowania (1-4)\n");
+                printf("5 = Wyjscie\n");
 
                 int type, count;
                 while(1){
@@ -167,10 +173,14 @@ int main(){
                         while(getchar() != '\n');
                         continue;
                     }
-                    if(type < 1 || type > 4){
+                    if(type < 1 || type > 5){
                         printf("Liczba musi byc w przedziale 1-4\n");
                         continue;
                     }
+                    break;
+                }
+
+                if(type == 5){
                     break;
                 }
 

@@ -4,6 +4,10 @@
 volatile sig_atomic_t running = 1; 
 volatile sig_atomic_t fire = 0;
 volatile int counter = 0;
+volatile int stat_success = 0;
+volatile int stat_no_order = 0;
+volatile int stat_no_table = 0;
+volatile int stat_frustrated = 0;
 
 pthread_t id_generator = -1;
 pthread_t id_reaper = -1;
@@ -32,6 +36,11 @@ void handle_signal(int sig){
     }
 }
 
+/*
+    Watek tworzacy procesy klientow
+    Dziala w petli dopoki nie przyjdzie sygnal zmieniajacy running na 0
+    Uzywa semafora aby sterowac liczba procesow dzieki czemu nie ma fork bomby
+*/
 void* generatorRoutine(){
     while(running){
         int res = semlock(SEM_GENERATOR, 0);
@@ -52,6 +61,7 @@ void* generatorRoutine(){
         if(pid == 0){
             execl("bin/client", "Klient", NULL);
             perror("execl client failed");
+            semunlock(SEM_GENERATOR, 0);
             _exit(1);
         }
         else if(pid == -1){
@@ -60,17 +70,39 @@ void* generatorRoutine(){
         }
         else{
             counter++;
+            usleep(1000);
         }
     }
     return NULL;
 }
 
+/*
+    Watek sprzatajacy procesy
+    Odbiera sygnaly o zakonczeniu procesow
+    Zlicza statystyke wyjsc
+*/
 void* reaperRoutine(){
     while(running){
+        int status;
         pid_t deadChild;
-        while((deadChild = waitpid(-1, NULL, WNOHANG)) > 0){
+        while((deadChild = waitpid(-1, &status, WNOHANG)) > 0){
             if(deadChild != pid_cashier && deadChild != pid_worker){
                 semunlock(SEM_GENERATOR, 0);
+                if(WIFEXITED(status)){
+                    int code = WEXITSTATUS(status);
+                    if(code == EXIT_EATEN){
+                        stat_success++;
+                    }
+                    else if(code == EXIT_NOORDER){
+                        stat_no_order++;
+                    }
+                    else if(code == EXIT_NOTABLE){
+                        stat_no_table++;
+                    }
+                    else if(code == EXIT_FRUSTRATED){
+                        stat_frustrated++;
+                    }
+                }
             }
         }
     }
@@ -190,7 +222,7 @@ int main(){
     }
 
     while(running){
-        //usleep(10000);
+        usleep(100000);
     }
     
     if(pthread_join(id_generator, NULL) != 0){
@@ -226,7 +258,7 @@ int main(){
     }
 
     semlock(SEM_MEMORY, 1);
-    int totalFinished = bar->sSuccess + bar->sNoOrder + bar->sNoTables + bar->sFrustrated;
+    int totalFinished = stat_success + stat_no_order + stat_no_table + stat_frustrated;
     semunlock(SEM_MEMORY, 1);
     int evacuated = counter - totalFinished;
     if (evacuated < 0){
@@ -236,10 +268,10 @@ int main(){
     logger("[MAIN] Koniec symulacji");
     logger("=== RAPORT KONCOWY ===");
     logger("--------------------------------");
-    logger("%-25s %d", "Sukces (zjedli):", bar->sSuccess);
-    logger("%-25s %d", "Brak zamowienia:", bar->sNoOrder);
-    logger("%-25s %d", "Brak miejsc:", bar->sNoTables);
-    logger("%-25s %d", "Zniecierpliwieni:", bar->sFrustrated);
+    logger("%-25s %d", "Sukces (zjedli):", stat_success);
+    logger("%-25s %d", "Brak zamowienia:", stat_no_order);
+    logger("%-25s %d", "Brak miejsc:", stat_no_table);
+    logger("%-25s %d", "Zniecierpliwieni:", stat_frustrated);
     logger("--------------------------------");
     logger("\033[1;31m%-25s %d\033[0m", "Przerwano (sygnal):", evacuated); //czerwony
     logger("================================");
