@@ -73,6 +73,7 @@ int main(){
         }
         switch(option){
             case 1:
+            {
                 if(doubleX3 == 0){
                     sigprocmask(SIG_BLOCK, &blockMask, &oldMask);
                     success = -1;
@@ -110,7 +111,9 @@ int main(){
                     printf(RED "Juz raz podwoiles stoliki 3 osobowe\n" RESET);
                 }
                 break;
+            }
             case 2:
+            {
                 int dontSend = 0;
                 int x1, x2, x3, x4;
                 x1 = x2 = x3 = x4 = 0;
@@ -252,7 +255,9 @@ int main(){
                     printf(RED "Nie udalo sie zarezerwowac stolikow\n" RESET);
                 }
                 break;
+            }
             case 3:
+            {
                 if(kill(-bar->mainPid, SIGTERM) == -1){
                     if(errno == ESRCH){
                         printf("Taki proces nie istnieje\n");
@@ -263,12 +268,17 @@ int main(){
                 }
                 printf(RED "POZAR!!!\n" RESET);
                 return 0;
+            }
             case 4:
+            {
                 detach_ipc();
                 return 0;
+            }
             default:
+            {
                 printf("Musisz wybrac jakas opcje z MENU");
                 break;
+            }
         }
     }
     detach_ipc();
