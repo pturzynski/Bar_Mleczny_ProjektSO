@@ -74,6 +74,11 @@ int main(){
     //nie zamawiamy i wychodzimy
     if(ifOrder < 5){
         logger(CLIENT_COL "[KLIENT %d | %d osob] Nie zamawiamy nic. Wychodzimy!" RESET, getpid(), groupSize);
+        
+        semlock(SEM_MEMORY, 1);
+        bar->sNoOrder += 1;
+        semunlock(SEM_MEMORY, 1);
+
         sem_openDoor(SEM_DOOR, groupSize, 1);
         loggerClose();
         detach_ipc();
@@ -91,6 +96,10 @@ int main(){
     semunlock(SEM_MEMORY, 1);
     if(unreservedTables == 0){
         logger(CLIENT_COL "[KLIENT %d | %d osob] Wszystkie stoliki sa zarezerwowane. Wychodzimy!" RESET, getpid(), groupSize);
+        semlock(SEM_MEMORY, 1);
+        bar->sNoTables += 1;
+        semunlock(SEM_MEMORY, 1);
+
         sem_openDoor(SEM_DOOR, groupSize, 1);
         loggerClose();
         detach_ipc();
@@ -119,6 +128,7 @@ int main(){
         if(unreservedTables == 0){
             logger(CLIENT_COL "[KLIENT %d | %d osob] Wszystkie stoliki sa zarezerwowane. Wychodzimy" RESET, getpid(), groupSize);
             bar->clients -= groupSize;
+            bar->sNoTables += 1;
             semunlock(SEM_MEMORY, 1);
             sem_wakeOne(SEM_SEARCH);
             sem_openDoor(SEM_DOOR, groupSize, 1);
@@ -154,6 +164,7 @@ int main(){
             if(attempts >= 10){
                 semlock(SEM_MEMORY, 1);
                 bar->clients -= groupSize;
+                bar->sFrustrated += 1;
                 semunlock(SEM_MEMORY, 1);
                 logger(CLIENT_COL "[KLIENT %d | %d osob] Zbyt dlugo szukamy stolika. Wychodzimy!" RESET, getpid(), groupSize);
                 sem_wakeOne(SEM_SEARCH);
@@ -230,9 +241,10 @@ int main(){
         bar->tables[foundTable].whoSits = 0;
     }
     bar->clients -= groupSize;
+    bar->sSuccess += 1;
     semunlock(SEM_MEMORY, 1);
-
     logger(CLIENT_COL "[KLIENT %d | %d osob] Odnosimy naczynia i opuszczamy bar" RESET, getpid(), groupSize);
+    
     sem_wakeOne(SEM_SEARCH);
     sem_openDoor(SEM_DOOR, groupSize, 1);
     loggerClose();

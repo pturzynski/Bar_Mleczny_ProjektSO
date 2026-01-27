@@ -59,6 +59,10 @@ typedef struct{
     int maxTables;
     int clients;
     int maxClients;
+    int sSuccess;  //s - status, do zliczania ilu klientow jak opuscilo bar
+    int sNoOrder;
+    int sNoTables;
+    int sFrustrated;
     pid_t workerPid;
     pid_t mainPid;
     pid_t managerPid;

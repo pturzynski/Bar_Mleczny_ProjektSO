@@ -3,6 +3,7 @@
 
 volatile sig_atomic_t running = 1; 
 volatile sig_atomic_t fire = 0;
+volatile int counter = 0;
 
 pthread_t id_generator = -1;
 pthread_t id_reaper = -1;
@@ -58,6 +59,7 @@ void* generatorRoutine(){
             perror("generator fork error");
         }
         else{
+            counter++;
         }
     }
     return NULL;
@@ -223,9 +225,27 @@ int main(){
         waitpid(pid_worker, NULL, 0);
     }
 
-    logger("[MAIN] Koniec symulacji");
-    loggerClose();
+    semlock(SEM_MEMORY, 1);
+    int totalFinished = bar->sSuccess + bar->sNoOrder + bar->sNoTables + bar->sFrustrated;
+    semunlock(SEM_MEMORY, 1);
+    int evacuated = counter - totalFinished;
+    if (evacuated < 0){
+        evacuated = 0;
+    }
 
+    logger("[MAIN] Koniec symulacji");
+    logger("=== RAPORT KONCOWY ===");
+    logger("--------------------------------");
+    logger("%-25s %d", "Sukces (zjedli):", bar->sSuccess);
+    logger("%-25s %d", "Brak zamowienia:", bar->sNoOrder);
+    logger("%-25s %d", "Brak miejsc:", bar->sNoTables);
+    logger("%-25s %d", "Zniecierpliwieni:", bar->sFrustrated);
+    logger("--------------------------------");
+    logger("\033[1;31m%-25s %d\033[0m", "Przerwano (sygnal):", evacuated); //czerwony
+    logger("================================");
+    logger("%-25s %d", "Lacznie klientow:", counter);
+
+    loggerClose();
     detach_ipc();
     cleanup_ipc();
     return 0;
