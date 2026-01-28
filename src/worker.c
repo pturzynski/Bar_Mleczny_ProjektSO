@@ -12,13 +12,11 @@ void handle_signal(int sig){
         reservation = 1;
     }
     if(sig == SIGINT){
-        loggerClose();
         logger(WORKER_COL "[PRACOWNIK] Koncze prace!" RESET);
         _exit(0);
     }
     if(sig == SIGTERM){
         logger(WORKER_COL "[PRACOWNIK] Klienci ewakuowani, uciekam tez!" RESET);
-        loggerClose();
         _exit(0);
     }
 }

@@ -50,11 +50,9 @@ void* clientEatTime(void* arg){
 
 void handle_signal(int sig) {
     if(sig == SIGINT){
-        loggerClose();
         _exit(0);
     }
     if(sig == SIGTERM){
-        loggerClose();
         _exit(0);
     }
 }

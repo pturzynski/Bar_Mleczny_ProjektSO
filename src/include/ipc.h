@@ -1,7 +1,7 @@
 #ifndef IPC_H
 #define IPC_H
 
-#define MAX_PROCESSES 5000//maksymalna liczba procesow do stworzenia
+#define MAX_PROCESSES 8000//maksymalna liczba procesow do stworzenia
 #define KEY_SHMEM '!'
 #define KEY_SEM '@'
 

@@ -5,13 +5,11 @@ int income = 0;
 void handle_signal(int sig){
     if(sig == SIGINT){
         logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);
-        loggerClose(); 
         _exit(0);
     }
     if(sig == SIGTERM){
         logger(CASHIER_COL "[KASJER] Klienci ewakuowani, zamykam kase i uciekam" RESET);
         logger(CASHIER_COL "[KASJER] Dochod: %d" RESET, income);
-        loggerClose();
         _exit(0);
     }
 }
